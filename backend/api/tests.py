@@ -29,15 +29,23 @@ class IntegrationTests(APITestCase):
         self.assertEqual(r.status_code,201,r.data)
         user=User.objects.get(username='newstudent')
         self.assertEqual(user.role,'student');self.assertFalse(user.is_staff);self.assertFalse(user.is_superuser)
-        self.assertNotIn('password',r.data)
+        self.assertNotIn('password',r.data);self.assertNotIn('refresh',r.data)
+        self.assertIn('lms-refresh',r.cookies);self.assertTrue(r.cookies['lms-refresh']['httponly'])
+        self.assertEqual(r.cookies['lms-refresh']['samesite'],'Strict')
         self.client.credentials(HTTP_AUTHORIZATION='Bearer '+r.data['access'])
         self.assertEqual(self.client.get('/api/user/profile/').data['email'],'new@example.com')
 
     def test_login_refresh_and_invalid_password(self):
         self.assertEqual(self.client.post('/api/login/',{'username':'student','password':'wrong'}).status_code,401)
         r=self.client.post('/api/login/',{'username':'student','password':'StrongPass!246'})
-        self.assertEqual(r.status_code,200)
-        self.assertEqual(self.client.post('/api/token/refresh/',{'refresh':r.data['refresh']}).status_code,200)
+        self.assertEqual(r.status_code,200);self.assertIn('access',r.data);self.assertNotIn('refresh',r.data)
+        self.assertIn('lms-refresh',r.cookies);old_refresh=r.cookies['lms-refresh'].value
+        refreshed=self.client.post('/api/token/refresh/',{},format='json')
+        self.assertEqual(refreshed.status_code,200,refreshed.data);self.assertIn('access',refreshed.data)
+        self.assertIn('lms-refresh',refreshed.cookies);self.assertNotEqual(old_refresh,refreshed.cookies['lms-refresh'].value)
+        logged_out=self.client.post('/api/logout/',{},format='json')
+        self.assertEqual(logged_out.status_code,204)
+        self.assertEqual(self.client.post('/api/token/refresh/',{},format='json').status_code,401)
 
     def test_private_lists_and_profile_patch(self):
         self.assertEqual(self.client.get('/api/assignments/').status_code,401)
@@ -75,7 +83,7 @@ class IntegrationTests(APITestCase):
         CalendarEvent.objects.create(title='Lesson',start_time=now,end_time=now+timedelta(hours=1),created_by=self.teacher,for_group=None,course=self.course)
         self.authenticate();self.assertEqual(len(self.client.get('/api/calendar/').data),1)
         book=Book.objects.create(title='Book',subject='IT',uploaded_by=self.teacher,course=self.course,file=SimpleUploadedFile('book.txt',b'Book contents'))
-        self.assertEqual(self.client.get(book.file.url).status_code,200)
+        download=self.client.get(book.file.url);self.assertEqual(download.status_code,200);download.close()
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get(book.file.url).status_code,401)
 

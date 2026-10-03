@@ -1,4 +1,5 @@
 """Course-scoped LMS workflows. All authorization runs on the server."""
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.db import transaction
 from django.db.models import Q, Max
@@ -11,11 +12,42 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from .access import TeacherOnly, courses_for, scoped, is_admin, is_teacher
 from .models import User, Course, Assignment, Submission, Book, CalendarEvent, AttendanceSession, AttendanceRecord
 from .serializers import (RegisterSerializer, LoginSerializer, UserProfileSerializer, CourseSerializer, AssignmentSerializer,
     SubmissionSerializer, GradeSerializer, BookSerializer, CalendarEventSerializer, AttendanceSessionSerializer, AttendanceRecordSerializer)
+
+
+REFRESH_COOKIE = 'lms-refresh'
+
+
+def set_refresh_cookie(response, token):
+    response.set_cookie(
+        REFRESH_COOKIE,
+        token,
+        max_age=int(settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds()),
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite='Strict',
+        path='/api/',
+    )
+    response['Cache-Control'] = 'no-store'
+    return response
+
+
+def clear_refresh_cookie(response):
+    response.delete_cookie(REFRESH_COOKIE, path='/api/', samesite='Strict')
+    response['Cache-Control'] = 'no-store'
+    return response
+
+
+def auth_response(user, status_code=status.HTTP_200_OK):
+    refresh = RefreshToken.for_user(user)
+    response = Response({'access': str(refresh.access_token)}, status=status_code)
+    return set_refresh_cookie(response, str(refresh))
 
 
 class RegisterAPIView(generics.CreateAPIView):
@@ -29,8 +61,7 @@ class RegisterAPIView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        refresh = RefreshToken.for_user(user)
-        return Response({'access': str(refresh.access_token), 'refresh': str(refresh)}, status=201)
+        return auth_response(user, status.HTTP_201_CREATED)
 
 
 class LoginAPIView(APIView):
@@ -45,8 +76,45 @@ class LoginAPIView(APIView):
         user = authenticate(request, **serializer.validated_data)
         if user is None:
             return Response({'detail': 'Foydalanuvchi nomi yoki parol noto‘g‘ri.'}, status=401)
-        refresh = RefreshToken.for_user(user)
-        return Response({'access': str(refresh.access_token), 'refresh': str(refresh)})
+        return auth_response(user)
+
+
+class CookieTokenRefreshAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
+
+    def post(self, request):
+        token = request.COOKIES.get(REFRESH_COOKIE)
+        if not token:
+            return clear_refresh_cookie(Response({'detail': 'Session expired.'}, status=401))
+        serializer = TokenRefreshSerializer(data={'refresh': token})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError:
+            return clear_refresh_cookie(Response({'detail': 'Session expired.'}, status=401))
+        data = serializer.validated_data
+        response = Response({'access': data['access']})
+        if data.get('refresh'):
+            set_refresh_cookie(response, data['refresh'])
+        else:
+            response['Cache-Control'] = 'no-store'
+        return response
+
+
+class LogoutAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        token = request.COOKIES.get(REFRESH_COOKIE)
+        if token:
+            try:
+                RefreshToken(token).blacklist()
+            except TokenError:
+                pass
+        return clear_refresh_cookie(Response(status=status.HTTP_204_NO_CONTENT))
 
 
 class ProfileAPIView(generics.RetrieveUpdateAPIView):

@@ -1,27 +1,53 @@
 import { config } from "./config";
+
+let accessToken: string | null = null;
 let refreshing: Promise<void> | null = null;
+
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+}
+
+export function clearAccessToken() {
+  accessToken = null;
+}
+
 async function refreshToken() {
   if (!refreshing)
     refreshing = (async () => {
-      const refresh = localStorage.getItem("lms-refresh");
-      if (!refresh) throw new Error("Please sign in again.");
       const response = await fetch("/api/token/refresh/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh }),
+        credentials: "same-origin",
+        cache: "no-store",
       });
       if (!response.ok) {
-        localStorage.removeItem("lms-token");
-        localStorage.removeItem("lms-refresh");
+        clearAccessToken();
         throw new Error("Session expired. Please sign in again.");
       }
       const data = await response.json();
-      localStorage.setItem("lms-token", data.access);
+      setAccessToken(data.access);
     })().finally(() => {
       refreshing = null;
     });
   return refreshing;
 }
+
+export async function restoreSession() {
+  await refreshToken();
+}
+
+export async function logoutSession() {
+  try {
+    await fetch("/api/logout/", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: AbortSignal.timeout(config.API_TIMEOUT),
+    });
+  } finally {
+    clearAccessToken();
+  }
+}
+
 async function fetchAPI(
   endpoint: string,
   options: RequestInit = {},
@@ -34,11 +60,13 @@ async function fetchAPI(
     endpoint === "/login/" ||
     endpoint === "/register/" ||
     endpoint === "/health/";
-  const token = localStorage.getItem("lms-token");
-  if (token && !publicRequest) headers.set("Authorization", `Bearer ${token}`);
+  if (accessToken && !publicRequest)
+    headers.set("Authorization", `Bearer ${accessToken}`);
   const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
+    credentials: "same-origin",
+    cache: "no-store",
     signal: AbortSignal.timeout(config.API_TIMEOUT),
   });
   if (response.status === 401 && !publicRequest && retry) {
@@ -152,8 +180,12 @@ export async function downloadFile(path: string, retry = true): Promise<void> {
     !url.pathname.startsWith("/media/")
   )
     throw new Error("Invalid file URL");
+  const headers = new Headers();
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   const response = await fetch(url.pathname, {
-    headers: { Authorization: `Bearer ${localStorage.getItem("lms-token")}` },
+    headers,
+    credentials: "same-origin",
+    cache: "no-store",
   });
   if (response.status === 401 && retry) {
     await refreshToken();

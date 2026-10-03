@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import * as api from "@/lib/api-service";
+
 type User = { id: string; username: string; email: string; [key: string]: any };
 type Auth = {
   user: User | null;
@@ -17,56 +18,62 @@ type Auth = {
   isOfflineMode: boolean;
   login: (u: string, p: string) => Promise<void>;
   register: (data: any) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   clearError: () => void;
   retryConnection: () => Promise<void>;
   reloadUser: () => Promise<void>;
 };
+
 const Context = createContext<Auth | undefined>(undefined);
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null),
-    [isLoading, setLoading] = useState(true),
-    [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setStatus] =
     useState<Auth["connectionStatus"]>("checking");
   const router = useRouter();
+
   const retryConnection = async () => {
     setStatus(
       (await api.testConnection()).success ? "connected" : "disconnected",
     );
   };
+
   const reloadUser = async () => {
     setUser(await api.getUserProfile());
   };
+
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        if (localStorage.getItem("lms-token")) await reloadUser();
+        await api.restoreSession();
+        const profile = await api.getUserProfile();
+        if (active) setUser(profile);
       } catch {
-        localStorage.removeItem("lms-token");
-        localStorage.removeItem("lms-refresh");
+        api.clearAccessToken();
+        if (active) setUser(null);
       } finally {
         if (active) setLoading(false);
       }
     })();
-    retryConnection();
+    void retryConnection();
     return () => {
       active = false;
     };
   }, []);
+
   const authenticate = async (request: () => Promise<any>) => {
     setLoading(true);
     setError(null);
     try {
       const data = await request();
-      localStorage.setItem("lms-token", data.access);
-      localStorage.setItem("lms-refresh", data.refresh);
+      api.setAccessToken(data.access);
       await reloadUser();
       router.push("/dashboard");
     } catch (e) {
-      localStorage.removeItem("lms-token");
-      localStorage.removeItem("lms-refresh");
+      api.clearAccessToken();
       setUser(null);
       setError(e instanceof Error ? e.message : "Unable to sign in");
       throw e;
@@ -74,12 +81,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   };
-  const logout = () => {
-    localStorage.removeItem("lms-token");
-    localStorage.removeItem("lms-refresh");
-    setUser(null);
-    router.push("/login");
+
+  const logout = async () => {
+    try {
+      await api.logoutSession();
+    } catch {
+      api.clearAccessToken();
+    } finally {
+      setUser(null);
+      router.push("/login");
+    }
   };
+
   return (
     <Context.Provider
       value={{
@@ -100,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </Context.Provider>
   );
 }
+
 export function useAuth() {
   const context = useContext(Context);
   if (!context) throw new Error("AuthProvider required");

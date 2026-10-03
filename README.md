@@ -7,7 +7,7 @@ Integrated version of https://github.com/Abdullo200604/LMS (original author attr
 ## What works
 
 - Next.js frontend and Django REST backend share one origin using `/api/` proxy routes.
-- Real student registration, password validation, JWT login and automatic access-token refresh.
+- Real student registration, password validation, JWT login and automatic access-token refresh. Access tokens stay in browser memory; rotating refresh tokens are kept only in `HttpOnly`, `SameSite=Strict` cookies and are blacklisted on logout/rotation.
 - Real profile editing, learning materials, assignment detail and file submission (1–10 attempts, teacher-configurable), grades, attendance and calendar.
 - Authenticated file downloads. Students cannot set their own grades or register themselves as administrators.
 - Django admin manages users, teacher roles, assignments, learning materials, submissions/grades and calendar events.
@@ -61,9 +61,9 @@ Open http://localhost:3000. No API keys or remote tunnel are required. Local SQL
 
 ## Deployment
 
-This is a Python + Node + PostgreSQL application; GitHub Pages alone cannot run its backend. Deploy Compose to a server that supports Docker, put HTTPS in front of port 3000, and set ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS to the real domain. DEBUG=0 and a private SECRET_KEY are required. Keep the database and backend off public ports. The HTTPS proxy must overwrite forwarded headers and prevent clients reaching the application directly.
+This is a Python + Node + PostgreSQL application; GitHub Pages alone cannot run its backend. Deploy Compose to a server that supports Docker, put HTTPS in front of port 3000, and set ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS to the real domain. DEBUG=0 and a private SECRET_KEY are required. With DEBUG=0 the refresh cookie is `Secure`, so production authentication requires HTTPS. Keep the database and backend off public ports. The HTTPS proxy must overwrite forwarded headers and prevent clients reaching the application directly.
 
-No cloud deployment or new GitHub repository has been created by this delivery: the connected GitHub identity is not the source repository owner and hosting access has not been configured. Docker configuration is supplied but Docker itself was unavailable in the build environment, so that path has not been executed.
+The source repository is on GitHub, but application hosting is separate and is not configured by this setup. Docker configuration is supplied; production Docker/PostgreSQL execution still needs environment-specific verification.
 
 ## Verification
 
@@ -76,10 +76,10 @@ pnpm exec tsc --noEmit
 pnpm build
 ```
 
-Integration tests cover registration privilege protection, login, token refresh, profile persistence, protected endpoints, teacher assignment creation, ISO timestamps, file submission/attempt limits, grading, calendar visibility and authenticated file access.
+Integration tests cover registration privilege protection, login, HttpOnly refresh-cookie rotation, logout blacklisting, profile persistence, protected endpoints, teacher assignment creation, ISO timestamps, file submission/attempt limits, grading, calendar visibility and authenticated file access.
 
 Before production rollout, validate the institution’s acceptance requirements, PostgreSQL concurrency, operational backups, account/password recovery and file malware scanning. File type/size limits, login throttling and course-based access are implemented. Hosting, Docker execution and browser interaction testing remain unverified here.
 
 ## Eski bazani yangilash
 
-Avval baza va `media/` katalogidan zaxira nusxa oling, so‘ng `python manage.py migrate` bajaring. Eski fayl/topshiriqlar o‘chirilmaydi. Administrator ularni tegishli kursga biriktirmaguncha talabalar ko‘rmaydi; muallif ustoz va administrator ko‘ra oladi. Eski takrorlangan urinish raqamlari ma’lumotni saqlagan holda tartiblanadi. Ustoz akkauntlarini administrator tasdiqlaydi; ochiq ro‘yxatdan o‘tish faqat talaba uchun.
+Avval baza va `media/` katalogidan zaxira nusxa oling, so‘ng `python manage.py migrate` bajaring. Bu SimpleJWT token-blacklist jadvallarini ham yaratadi. Eski fayl/topshiriqlar o‘chirilmaydi. Administrator ularni tegishli kursga biriktirmaguncha talabalar ko‘rmaydi; muallif ustoz va administrator ko‘ra oladi. Eski takrorlangan urinish raqamlari ma’lumotni saqlagan holda tartiblanadi. Ustoz akkauntlarini administrator tasdiqlaydi; ochiq ro‘yxatdan o‘tish faqat talaba uchun.
