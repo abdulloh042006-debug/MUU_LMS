@@ -1,0 +1,7 @@
+node_modules
+.next
+.env
+__pycache__
+*.sqlite3
+media
+static

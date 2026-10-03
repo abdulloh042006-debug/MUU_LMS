@@ -1,0 +1,10 @@
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.env
+.venv/
+*.sqlite3
+backend/static/
+backend/media/
+*.tsbuildinfo

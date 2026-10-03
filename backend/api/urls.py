@@ -1,0 +1,38 @@
+from django.urls import path
+from rest_framework_simplejwt.views import TokenRefreshView
+from . import views as v
+
+urlpatterns = [
+    path('register/', v.RegisterAPIView.as_view()),
+    path('login/', v.LoginAPIView.as_view()),
+    path('token/refresh/', TokenRefreshView.as_view()),
+    path('user/profile/', v.ProfileAPIView.as_view()),
+    path('user/profile/update/', v.ProfileAPIView.as_view()),
+    path('user/profile/update/v2/', v.ProfileAPIView.as_view()),
+    path('courses/', v.CourseListAPIView.as_view()),
+    path('courses/<int:pk>/', v.CourseDetailAPIView.as_view()),
+    path('courses/<int:pk>/students/', v.CourseStudentsAPIView.as_view()),
+    path('courses/<int:pk>/students/<int:student_id>/', v.CourseStudentsAPIView.as_view()),
+    path('assignments/', v.AssignmentListAPIView.as_view()),
+    path('assignments/create/', v.AssignmentListAPIView.as_view()),
+    path('assignments/<int:pk>/', v.AssignmentDetailAPIView.as_view()),
+    path('assignments/<int:pk>/update/', v.AssignmentDetailAPIView.as_view()),
+    path('assignments/<int:pk>/delete/', v.AssignmentDetailAPIView.as_view()),
+    path('assignments/<int:assignment_id>/submit/', v.SubmissionAPIView.as_view()),
+    path('assignments/<int:assignment_id>/submissions/', v.SubmissionAPIView.as_view()),
+    path('books/', v.BookListAPIView.as_view()),
+    path('books/create/', v.BookListAPIView.as_view()),
+    path('books/<int:pk>/', v.BookDetailAPIView.as_view()),
+    path('books/<int:pk>/delete/', v.BookDetailAPIView.as_view()),
+    path('calendar/', v.CalendarListAPIView.as_view()),
+    path('calendar/create/', v.CalendarListAPIView.as_view()),
+    path('calendar/<int:pk>/', v.CalendarDetailAPIView.as_view()),
+    path('calendar/<int:pk>/delete/', v.CalendarDetailAPIView.as_view()),
+    path('grades/my/', v.MyGradesAPIView.as_view()),
+    path('grades/teacher/', v.TeacherSubmissionsAPIView.as_view()),
+    path('grades/<int:submission_id>/set/', v.GradeSetAPIView.as_view()),
+    path('submissions/<int:submission_id>/grade/', v.GradeSetAPIView.as_view()),
+    path('attendance/', v.AttendanceListAPIView.as_view()),
+    path('attendance/my/', v.MyAttendanceAPIView.as_view()),
+    path('attendance/<int:pk>/', v.AttendanceDetailAPIView.as_view()),
+]
