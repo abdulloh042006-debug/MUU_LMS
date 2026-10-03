@@ -8,7 +8,7 @@
 | Baholash | Javobni yuklab olish, 0–100 ball va izoh | O‘z bahosi va ustoz izohini ko‘rish |
 | Davomat | Dars yaratish, keldi/kelmadi/kechikdi/sababli belgilash va tuzatish | Faqat o‘z davomatini ko‘rish |
 | Taqvim | Kurs tadbirlarini yaratish/o‘chirish | O‘z kursi tadbirlarini ko‘rish |
-| Profil | Ism, email va bio | Ism, email va bio |
+| Profil | Ism, email, bio va joriy parol bilan parolni o‘zgartirish | Ism, email, bio va joriy parol bilan parolni o‘zgartirish |
 
 Administrator Django admin orqali rollarni, eski ma’lumotlarning kursga tegishliligini va akkaunt faolligini boshqaradi. Ustoz bo‘lish ochiq ro‘yxatdan o‘tish orqali berilmaydi.
 
@@ -34,4 +34,4 @@ Administrator Django admin orqali rollarni, eski ma’lumotlarning kursga tegish
 
 README.md dagi Docker yoki mahalliy yo‘riqnomadan foydalaning. Talaba ro‘yxatdan o‘tadi; administrator ustoz rolini beradi; ustoz kurs ochib talabani username bilan biriktiradi. Keyin material/topshiriq/davomat haqiqiy API orqali ishlaydi.
 
-HEMIS integratsiyasi, avtomatik parol tiklash, video hosting va universitet bo‘yicha rasmiy hisobotlar bu versiyada yo‘q. Internetga joylash va universitet qabul sinovi alohida bajarilishi kerak.
+HEMIS integratsiyasi, email verification, ommaviy/avtomatik parol tiklash, video hosting va universitet bo‘yicha rasmiy hisobotlar bu versiyada yo‘q. Parolini unutgan foydalanuvchi uchun reset faqat administrator tomonidan Django admin orqali bajariladi. Internetga joylash va universitet qabul sinovi alohida bajarilishi kerak.

@@ -13,11 +13,13 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.utils import get_md5_hash_password
 from .access import TeacherOnly, courses_for, scoped, is_admin, is_teacher
 from .models import User, Course, Assignment, Submission, Book, CalendarEvent, AttendanceSession, AttendanceRecord
-from .serializers import (RegisterSerializer, LoginSerializer, UserProfileSerializer, CourseSerializer, AssignmentSerializer,
+from .serializers import (RegisterSerializer, LoginSerializer, UserProfileSerializer, ChangePasswordSerializer, CourseSerializer, AssignmentSerializer,
     SubmissionSerializer, GradeSerializer, BookSerializer, CalendarEventSerializer, AttendanceSessionSerializer, AttendanceRecordSerializer)
 
 
@@ -89,8 +91,17 @@ class CookieTokenRefreshAPIView(APIView):
         token = request.COOKIES.get(REFRESH_COOKIE)
         if not token:
             return clear_refresh_cookie(Response({'detail': 'Session expired.'}, status=401))
-        serializer = TokenRefreshSerializer(data={'refresh': token})
         try:
+            refresh = RefreshToken(token)
+            user_id = refresh.get(api_settings.USER_ID_CLAIM)
+            user = User.objects.filter(pk=user_id, is_active=True).first()
+            if not user or refresh.get(api_settings.REVOKE_TOKEN_CLAIM) != get_md5_hash_password(user.password):
+                try:
+                    refresh.blacklist()
+                except TokenError:
+                    pass
+                return clear_refresh_cookie(Response({'detail': 'Session expired.'}, status=401))
+            serializer = TokenRefreshSerializer(data={'refresh': token})
             serializer.is_valid(raise_exception=True)
         except TokenError:
             return clear_refresh_cookie(Response({'detail': 'Session expired.'}, status=401))
@@ -123,6 +134,22 @@ class ProfileAPIView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class ChangePasswordAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        token = request.COOKIES.get(REFRESH_COOKIE)
+        if token:
+            try:
+                RefreshToken(token).blacklist()
+            except TokenError:
+                pass
+        return auth_response(user)
 
 
 class CourseListAPIView(generics.ListCreateAPIView):

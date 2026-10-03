@@ -8,6 +8,7 @@ Integrated version of https://github.com/Abdullo200604/LMS (original author attr
 
 - Next.js frontend and Django REST backend share one origin using `/api/` proxy routes.
 - Real student registration, password validation, JWT login and automatic access-token refresh. Access tokens stay in browser memory; rotating refresh tokens are kept only in `HttpOnly`, `SameSite=Strict` cookies and are blacklisted on logout/rotation.
+- Signed-in users change their own password from Profile by confirming the current password. There is no public forgot-password or email-verification flow; forgotten passwords are reset only by an administrator through Django admin. Any password change invalidates JWTs issued under the old password.
 - Real profile editing, learning materials, assignment detail and file submission (1–10 attempts, teacher-configurable), grades, attendance and calendar.
 - Authenticated file downloads. Students cannot set their own grades or register themselves as administrators.
 - Django admin manages users, teacher roles, assignments, learning materials, submissions/grades and calendar events.

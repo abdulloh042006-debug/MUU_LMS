@@ -7,6 +7,7 @@ urlpatterns = [
     path('token/refresh/', v.CookieTokenRefreshAPIView.as_view()),
     path('logout/', v.LogoutAPIView.as_view()),
     path('user/profile/', v.ProfileAPIView.as_view()),
+    path('user/password/change/', v.ChangePasswordAPIView.as_view()),
     path('user/profile/update/', v.ProfileAPIView.as_view()),
     path('user/profile/update/v2/', v.ProfileAPIView.as_view()),
     path('courses/', v.CourseListAPIView.as_view()),

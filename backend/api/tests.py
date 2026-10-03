@@ -47,6 +47,26 @@ class IntegrationTests(APITestCase):
         self.assertEqual(logged_out.status_code,204)
         self.assertEqual(self.client.post('/api/token/refresh/',{},format='json').status_code,401)
 
+    def test_change_password_requires_current_password_and_keeps_session(self):
+        self.authenticate()
+        url='/api/user/password/change/'
+        r=self.client.post(url,{'current_password':'wrong','new_password':'NewStrongPass!579','confirm_password':'NewStrongPass!579'},format='json')
+        self.assertEqual(r.status_code,400)
+        r=self.client.post(url,{'current_password':'StrongPass!246','new_password':'NewStrongPass!579','confirm_password':'NewStrongPass!579'},format='json')
+        self.assertEqual(r.status_code,200,r.data)
+        self.assertIn('access',r.data);self.assertNotIn('refresh',r.data);self.assertIn('lms-refresh',r.cookies)
+        self.student.refresh_from_db();self.assertTrue(self.student.check_password('NewStrongPass!579'))
+
+    def test_password_hash_change_revokes_existing_jwt_session(self):
+        login=self.client.post('/api/login/',{'username':'student','password':'StrongPass!246'},format='json')
+        self.assertEqual(login.status_code,200,login.data)
+        access=login.data['access']
+        self.student.set_password('ChangedStrongPass!864');self.student.save(update_fields=['password'])
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer '+access)
+        self.assertEqual(self.client.get('/api/user/profile/').status_code,401)
+        self.client.credentials()
+        self.assertEqual(self.client.post('/api/token/refresh/',{},format='json').status_code,401)
+
     def test_private_lists_and_profile_patch(self):
         self.assertEqual(self.client.get('/api/assignments/').status_code,401)
         self.authenticate()
@@ -96,8 +116,10 @@ class IntegrationTests(APITestCase):
         admin=User.objects.create_superuser(username='owner',password='StrongPass!246',fullname='Owner')
         self.assertEqual(admin.role,'admin')
         self.client.force_login(admin)
-        for path in ['/admin/api/user/add/',f'/admin/api/user/{self.student.pk}/change/']:
+        for path in ['/admin/api/user/add/',f'/admin/api/user/{self.student.pk}/change/',f'/admin/api/user/{self.student.pk}/password/']:
             self.assertEqual(self.client.get(path).status_code,200)
+        self.client.logout();self.client.force_login(self.student)
+        self.assertNotEqual(self.client.get(f'/admin/api/user/{admin.pk}/password/').status_code,200)
 
     def test_course_boundaries_for_list_detail_and_files(self):
         other_teacher=User.objects.create_user(username='otherteacher',password='StrongPass!246',fullname='Other',role='ustoz')

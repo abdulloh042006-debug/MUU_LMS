@@ -44,6 +44,29 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'username', 'role']
 
 
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    confirm_password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, data):
+        user = self.context['request'].user
+        if not user.check_password(data['current_password']):
+            raise serializers.ValidationError({'current_password': 'Joriy parol noto‘g‘ri.'})
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError({'confirm_password': 'Yangi parollar bir xil emas.'})
+        if data['current_password'] == data['new_password']:
+            raise serializers.ValidationError({'new_password': 'Yangi parol joriy paroldan farq qilishi kerak.'})
+        validate_password(data['new_password'], user)
+        return data
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save(update_fields=['password'])
+        return user
+
+
 class CourseSerializer(serializers.ModelSerializer):
     teacher_name = serializers.CharField(source='teacher.fullname', read_only=True)
     student_count = serializers.IntegerField(source='students.count', read_only=True)

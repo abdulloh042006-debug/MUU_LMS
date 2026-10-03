@@ -126,6 +126,22 @@ export const updateUserProfile = (u: any) =>
     method: "PATCH",
     body: JSON.stringify(u),
   });
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string,
+) {
+  const data = await fetchAPI(
+    "/user/password/change/",
+    post({
+      current_password: currentPassword,
+      new_password: newPassword,
+      confirm_password: confirmPassword,
+    }),
+  );
+  setAccessToken(data.access);
+  return data;
+}
 export const getBooks = () => fetchAPI("/books/");
 export const getBookById = (id: string) => fetchAPI(`/books/${id}/`);
 export async function getAssignments() {
