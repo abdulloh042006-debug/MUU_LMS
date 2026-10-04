@@ -403,6 +403,7 @@ class ProtectedMediaAPIView(APIView):
         try:
             response = FileResponse(item.file.open('rb'), as_attachment=True)
             response['Cache-Control'] = 'private, no-store'
+            response['X-Content-Type-Options'] = 'nosniff'
             return response
         except FileNotFoundError:
             raise Http404()

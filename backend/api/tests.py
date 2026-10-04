@@ -1,6 +1,8 @@
 import tempfile
 from datetime import timedelta
+from django.db import connection
 from django.test import override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase
@@ -103,7 +105,7 @@ class IntegrationTests(APITestCase):
         CalendarEvent.objects.create(title='Lesson',start_time=now,end_time=now+timedelta(hours=1),created_by=self.teacher,for_group=None,course=self.course)
         self.authenticate();self.assertEqual(len(self.client.get('/api/calendar/').data),1)
         book=Book.objects.create(title='Book',subject='IT',uploaded_by=self.teacher,course=self.course,file=SimpleUploadedFile('book.txt',b'Book contents'))
-        download=self.client.get(book.file.url);self.assertEqual(download.status_code,200);download.close()
+        download=self.client.get(book.file.url);self.assertEqual(download.status_code,200);self.assertEqual(download['X-Content-Type-Options'],'nosniff');download.close()
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get(book.file.url).status_code,401)
 
@@ -153,10 +155,25 @@ class IntegrationTests(APITestCase):
         url=f'/api/assignments/{self.assignment.pk}/submit/'
         self.authenticate()
         self.assertEqual(self.client.post(url,{'file':SimpleUploadedFile('a.txt',b'answer')}).status_code,400)
+        self.assertEqual(self.client.put(url,{'file':SimpleUploadedFile('replace.txt',b'replace')}).status_code,405)
+        self.assertEqual(self.client.patch(url,{'file':SimpleUploadedFile('replace.txt',b'replace')}).status_code,405)
         self.assignment.allow_late=True;self.assignment.save()
         self.assertEqual(self.client.post(url,{'file':SimpleUploadedFile('a.txt',b'answer')}).status_code,201)
         self.authenticate(self.teacher)
         self.assertEqual(self.client.post(url,{'file':SimpleUploadedFile('a.txt',b'answer')}).status_code,403)
+
+    def test_idor_guessed_submission_and_grade_ids_are_scoped(self):
+        classmate=User.objects.create_user(username='classmate2',password='StrongPass!246',fullname='Classmate Two')
+        self.course.students.add(classmate)
+        foreign=Submission.objects.create(assignment=self.assignment,student=classmate,file=SimpleUploadedFile('foreign.pdf',b'%PDF-1.4 foreign'),grade=88)
+        self.authenticate()
+        self.assertEqual(self.client.get(f'/api/assignments/{self.assignment.pk}/submissions/').data,[])
+        self.assertEqual(self.client.get('/api/grades/my/').data,[])
+        self.assertEqual(self.client.post(f'/api/grades/{foreign.pk}/set/',{'grade':100}).status_code,403)
+        self.assertEqual(self.client.get(f'/api/submissions/{foreign.pk}/').status_code,404)
+        other_teacher=User.objects.create_user(username='othergrader',password='StrongPass!246',fullname='Other Grader',role='ustoz')
+        self.authenticate(other_teacher)
+        self.assertEqual(self.client.post(f'/api/grades/{foreign.pk}/set/',{'grade':100}).status_code,404)
 
     def test_history_visibility_and_no_deleting_submitted_work(self):
         other=User.objects.create_user(username='classmate',password='StrongPass!246',fullname='Classmate')
@@ -190,6 +207,21 @@ class IntegrationTests(APITestCase):
         r=self.client.put(f'/api/attendance/{session.pk}/',{'records':[{'student':self.student.pk,'status':'present'},{'student':stranger.pk,'status':'absent'}]},format='json')
         self.assertEqual(r.status_code,400);self.assertEqual(session.records.count(),0)
 
+    def test_course_list_query_count_does_not_scale_with_course_count(self):
+        self.authenticate()
+        with CaptureQueriesContext(connection) as small_ctx:
+            small=self.client.get('/api/courses/')
+            self.assertEqual(small.status_code,200)
+        small_count=len(small_ctx)
+        for i in range(20):
+            course=Course.objects.create(title=f'Course {i}',code=f'Q-{i}',teacher=self.teacher)
+            course.students.add(self.student)
+        with CaptureQueriesContext(connection) as large_ctx:
+            large=self.client.get('/api/courses/')
+            self.assertEqual(large.status_code,200)
+            self.assertEqual(len(large.data),21)
+        self.assertLessEqual(len(large_ctx),small_count+1)
+
     def test_archived_course_and_inactive_account(self):
         self.course.is_archived=True;self.course.save()
         self.authenticate()
@@ -197,6 +229,15 @@ class IntegrationTests(APITestCase):
         self.client.force_authenticate(None)
         self.student.is_active=False;self.student.save()
         self.assertEqual(self.client.post('/api/login/',{'username':'student','password':'StrongPass!246'}).status_code,401)
+
+    def test_submission_upload_allowlist_and_size_limit(self):
+        self.authenticate()
+        url=f'/api/assignments/{self.assignment.pk}/submit/'
+        for name in ['bad.exe','bad.sh','bad.html','bad.svg','bad.js']:
+            self.assertEqual(self.client.post(url,{'file':SimpleUploadedFile(name,b'blocked')}).status_code,400)
+        too_big=SimpleUploadedFile('too-big.pdf',b'x'*(10*1024*1024+1))
+        self.assertEqual(self.client.post(url,{'file':too_big}).status_code,400)
+        self.assertEqual(self.client.post(url,{'file':SimpleUploadedFile('answer.zip',b'PK\x03\x04safe')}).status_code,201)
 
     def test_upload_rejects_executable_and_calendar_invalid_times(self):
         self.authenticate()

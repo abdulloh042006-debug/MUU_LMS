@@ -19,7 +19,7 @@ Integrated version of https://github.com/Abdullo200604/LMS (original author attr
 - Teacher workspace `/manage`: course creation/archive, roster, material upload, assignment editing, grading with feedback, attendance and calendar.
 - Student workspace: enrolled courses, submission history, teacher feedback and personal attendance.
 
-Materials retain the original database model name `Book`. Courses are now separate real records. Fake video lessons, progress, discussion and offline login were removed. See FEATURES.md for role boundaries and upgrade notes.
+Materials retain the original database model name `Book`. Courses are now separate real records. Fake video lessons, progress, discussion and offline login were removed. See FEATURES.md for role boundaries and upgrade notes, and SECURITY_AUDIT.md for the latest IDOR, deadline, upload, N+1 and XSS-sink audit results.
 
 ## Docker: frontend + backend + database
 

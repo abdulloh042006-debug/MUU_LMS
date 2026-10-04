@@ -6,11 +6,18 @@ from .access import is_admin
 from .models import User, Course, Assignment, Submission, Book, CalendarEvent, AttendanceSession, AttendanceRecord
 
 
-def validate_upload(value):
-    if value and value.size > 20 * 1024 * 1024:
-        raise serializers.ValidationError('Fayl hajmi 20 MB dan oshmasin.')
-    if value and Path(value.name).suffix.lower() not in {'.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.csv', '.txt', '.png', '.jpg', '.jpeg', '.webp'}:
-        raise serializers.ValidationError('PDF, Office, matn yoki rasm faylini yuklang.')
+SAFE_UPLOAD_EXTENSIONS = {'.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.csv', '.txt', '.png', '.jpg', '.jpeg', '.webp'}
+SAFE_SUBMISSION_EXTENSIONS = SAFE_UPLOAD_EXTENSIONS | {'.zip'}
+
+
+def validate_upload(value, *, max_mb=20, allowed_extensions=SAFE_UPLOAD_EXTENSIONS):
+    if not value:
+        return value
+    if value.size > max_mb * 1024 * 1024:
+        raise serializers.ValidationError(f'Fayl hajmi {max_mb} MB dan oshmasin.')
+    suffix = Path(value.name).suffix.lower()
+    if suffix not in allowed_extensions:
+        raise serializers.ValidationError('Bu fayl formati ruxsat etilmagan.')
     return value
 
 
@@ -134,7 +141,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
         return obj.submitted_at > obj.assignment.deadline
 
     def validate_file(self, value):
-        return validate_upload(value)
+        return validate_upload(value, max_mb=10, allowed_extensions=SAFE_SUBMISSION_EXTENSIONS)
 
     class Meta:
         model = Submission

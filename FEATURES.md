@@ -27,7 +27,7 @@ Administrator Django admin orqali rollarni, eski ma’lumotlarning kursga tegish
 - Talabani kursdan chiqarish uning akkaunti va eski javoblarini o‘chirmaydi; kursga kirishini bekor qiladi.
 - Baho sahifasi har topshiriqning eng so‘nggi baholangan urinishini hisoblaydi. Barcha urinishlar topshiriq tarixida saqlanadi.
 - Davomat belgilanmagan holat avtomatik ravishda “kelmadi” hisoblanmaydi. Bo‘sh qiymat bilan saqlash avvalgi belgini tozalaydi.
-- Fayllar 20 MB gacha; hujjat, jadval, matn va tasvir kengaytmalari cheklangan. Antivirus tekshiruvi hali ulanmagan.
+- Material/topshiriq biriktirma fayllari 20 MB gacha; talabaning Submission fayli 10 MB gacha. Submission uchun xavfsiz allowlist ishlatiladi (`.pdf`, Office, matn, rasm va `.zip`); `.html`, `.svg`, `.js`, `.exe`, `.sh` kabi active/xavfli formatlar qabul qilinmaydi. Yuklab olishlar attachment + `X-Content-Type-Options: nosniff` bilan beriladi. Antivirus/malware scanning hali ulanmagan.
 - Django 5.2.17, SimpleJWT 5.5.1, Next.js 15.5.27; Django migratsiyalari eski yozuvlarni saqlaydi.
 
 ## Ishga tushirish
