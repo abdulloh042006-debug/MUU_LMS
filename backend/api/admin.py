@@ -6,7 +6,7 @@ from .models import User, Assignment, Submission, Book, CalendarEvent, Course, A
 class LMSUserCreationForm(UserCreationForm):
     class Meta:
         model = User
-        fields = ('username', 'fullname', 'email', 'role')
+        fields = ('username', 'fullname', 'email', 'student_id', 'phone_number', 'telegram_chat_id', 'role')
 
 class LMSUserChangeForm(UserChangeForm):
     class Meta:
@@ -19,14 +19,14 @@ class UserAdmin(DefaultUserAdmin):
     ordering = ('username',)
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        ('Profile', {'fields': ('fullname', 'email', 'bio', 'birthday_date', 'gender', 'address', 'temporarily_address')}),
-        ('Access', {'fields': ('role', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Profile', {'fields': ('fullname', 'email', 'student_id', 'phone_number', 'telegram_chat_id', 'bio', 'birthday_date', 'gender', 'address', 'temporarily_address')}),
+        ('Access', {'fields': ('role', 'must_change_password', 'temporary_password_expires_at', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Dates', {'fields': ('last_login',)}),
     )
-    add_fieldsets = ((None, {'fields': ('username', 'fullname', 'email', 'role', 'password1', 'password2')}),)
+    add_fieldsets = ((None, {'fields': ('username', 'fullname', 'email', 'student_id', 'phone_number', 'telegram_chat_id', 'role', 'password1', 'password2')}),)
 
-    list_display = ('id', 'fullname', 'username', 'role', 'gender', 'birthday_date')
-    search_fields = ('fullname', 'username')
+    list_display = ('id', 'fullname', 'username', 'student_id', 'phone_number', 'role', 'gender', 'birthday_date')
+    search_fields = ('fullname', 'username', 'student_id', 'phone_number', 'telegram_chat_id')
     list_filter = ('role', 'gender')
 
 class AssignmentAdmin(admin.ModelAdmin):

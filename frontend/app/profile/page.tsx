@@ -71,6 +71,7 @@ export default function Profile() {
     setChangingPassword(true);
     try {
       await changePassword(currentPassword, newPassword, confirmPassword);
+      await reloadUser();
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -98,6 +99,14 @@ export default function Profile() {
             <p>Profil ma’lumotlari va hisob parolini bir joydan boshqaring.</p>
           </div>
         </div>
+
+        {user?.must_change_password && (
+          <Alert className="mb-6">
+            <AlertDescription>
+              Siz vaqtinchalik parol bilan kirdingiz. Davom etishdan oldin yangi parol o‘rnating.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="management-grid">
           <Card>

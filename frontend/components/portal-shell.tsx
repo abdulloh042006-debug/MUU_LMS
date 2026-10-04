@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/notification-bell";
+import { AttendancePermissionSetup } from "@/components/attendance-permission-setup";
 import {
   Sheet,
   SheetContent,
@@ -162,6 +163,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   );
   return (
     <div className="portal">
+      {!demo && <AttendancePermissionSetup />}
       <a className="skip-link" href="#main-content">
         Asosiy qismga o‘tish
       </a>

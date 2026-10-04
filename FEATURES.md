@@ -22,20 +22,22 @@ Administrator Django admin orqali rollarni, eski ma’lumotlarning kursga tegish
 
 ## Muhim qoidalar
 
+- Yangi foydalanuvchini faqat administrator yaratadi. Public ro‘yxatdan o‘tish API/UI mavjud emas; `/register` login sahifasiga qaytadi.
 - Talaba o‘ziga baho qo‘ya olmaydi, o‘zini kursga biriktira olmaydi va boshqa talabaning javobini yuklab ololmaydi.
+- Hisobni tiklash telefon raqami + talaba ID orqali tekshiriladi. Oldindan bog‘langan Telegram chat mavjud bo‘lsa bot username va 15 daqiqalik vaqtinchalik parol yuboradi; foydalanuvchi boshqa LMS API’laridan foydalanishdan oldin parolni almashtirishi shart.
 - Yuborilgan javobi bor topshiriq o‘chirilmaydi. Kurs o‘chirish o‘rniga arxivlanadi; arxivlangan kursga yangi javob qabul qilinmaydi.
 - Talabani kursdan chiqarish uning akkaunti va eski javoblarini o‘chirmaydi; kursga kirishini bekor qiladi.
 - Baho sahifasi har topshiriqning eng so‘nggi baholangan urinishini hisoblaydi. Barcha urinishlar topshiriq tarixida saqlanadi.
 - Manual davomatda belgilanmagan holat avtomatik “kelmadi” bo‘lmaydi. Avtomatik sessiya yakunlanganda esa check-in qilmagan aktiv kurs talabalari `absent` sifatida qayd etiladi; ustoz keyin qo‘lda tuzata oladi.
-- Avtomatik davomat hozir BLEsiz ishlaydi: server-signed 5 soniyalik QR fallback + 8 belgili vaqtinchalik ultrasound kodi + scan vaqtida olinadigan yangi lokatsiya/accuracy/radius tekshiruvi. QR kamera mavjud qurilmada zoom va continuous focusni avtomatik qo‘llaydi. BLE kelajakdagi universitet tasdig‘idan keyingi bosqich sifatida qoldirilgan.
+- Avtomatik davomat hozir BLEsiz ishlaydi: server-signed 5 soniyalik QR fallback + 8 belgili vaqtinchalik ultrasound kodi + scan vaqtida olinadigan yangi lokatsiya/accuracy/radius tekshiruvi. QR kamera mavjud qurilmada zoom va continuous focusni avtomatik qo‘llaydi. HTTPS/Telegram WebView’da talaba uchun lokatsiya+kamera+mikrofon bir martalik permission setup UI mavjud; muvaffaqiyatli berilgach LMS o‘z setup oynasini qayta ko‘rsatmaydi. BLE kelajakdagi universitet tasdig‘idan keyingi bosqich sifatida qoldirilgan.
 - Davomat oynasi kursdagi aktiv talabalar soniga qarab avtomatik kengayadi (30 talabagacha 3 daqiqa, keyin har qo‘shimcha 30 talaba uchun +1 daqiqa, maksimum 10 daqiqa); `late` chegarasi shu oynaga mos hisoblanadi.
 - Material/topshiriq biriktirma fayllari 20 MB gacha; talabaning Submission fayli 10 MB gacha. Xavfsiz allowlist ishlatiladi (`.pdf`, Office, matn, rasm va `.zip`); `.html`, `.svg`, `.js`, `.exe`, `.sh` kabi active/xavfli formatlar qabul qilinmaydi. Yuklab olishlar attachment + `X-Content-Type-Options: nosniff` bilan beriladi. Antivirus/malware scanning hali ulanmagan.
 - Django 5.2.17, SimpleJWT 5.5.1, Next.js 15.5.27; Django migratsiyalari eski yozuvlarni saqlaydi.
 
 ## Ishga tushirish
 
-README.md dagi Docker yoki mahalliy yo‘riqnomadan foydalaning. Talaba ro‘yxatdan o‘tadi; administrator ustoz rolini beradi; ustoz kurs ochib talabani username bilan biriktiradi. Keyin material/topshiriq/davomat haqiqiy API orqali ishlaydi.
+README.md dagi Docker yoki mahalliy yo‘riqnomadan foydalaning. Administrator talaba/ustoz hisoblarini yaratadi; ustoz kurs ochib admin yaratgan talabani username bilan biriktiradi. Keyin material/topshiriq/davomat haqiqiy API orqali ishlaydi.
 
 Notification tizimi ishlaydi: `Notification` modeli, assignment/material/course/submission/grade triggerlari, foydalanuvchining private GET/read/read-all API’lari va frontend notification bell mavjud.
 
-HEMIS integratsiyasi, email verification, ommaviy/avtomatik parol tiklash, video hosting va universitet bo‘yicha rasmiy hisobotlar bu versiyada yo‘q. Parolini unutgan foydalanuvchi uchun reset faqat administrator tomonidan Django admin orqali bajariladi. Internetga joylash va universitet qabul sinovi alohida bajarilishi kerak.
+HEMIS integratsiyasi, email verification, video hosting va universitet bo‘yicha rasmiy hisobotlar bu versiyada yo‘q. Telegram recovery faqat admin oldindan kiritgan identifikatorlar va bog‘langan chat uchun ishlaydi; bot token production secret sifatida alohida sozlanadi. Internetga joylash va universitet qabul sinovi alohida bajarilishi kerak.

@@ -17,7 +17,6 @@ type Auth = {
   connectionStatus: "checking" | "connected" | "disconnected" | "offline";
   isOfflineMode: boolean;
   login: (u: string, p: string) => Promise<void>;
-  register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
   retryConnection: () => Promise<void>;
@@ -70,8 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await request();
       api.setAccessToken(data.access);
-      await reloadUser();
-      router.push("/dashboard");
+      const profile = await api.getUserProfile();
+      setUser(profile);
+      router.push(profile.must_change_password ? "/profile?change-password=1" : "/dashboard");
     } catch (e) {
       api.clearAccessToken();
       setUser(null);
@@ -102,7 +102,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         connectionStatus,
         isOfflineMode: false,
         login: (u, p) => authenticate(() => api.login(u, p)),
-        register: (data) => authenticate(() => api.register(data)),
         logout,
         clearError: () => setError(null),
         retryConnection,

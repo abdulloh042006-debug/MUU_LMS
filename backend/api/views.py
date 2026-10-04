@@ -3,6 +3,10 @@ import hashlib
 import hmac
 import math
 import time
+import json
+import secrets
+import string
+import urllib.request
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -25,7 +29,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.utils import get_md5_hash_password
 from .access import TeacherOnly, courses_for, scoped, is_admin, is_teacher
 from .models import User, Course, Assignment, Submission, Book, CalendarEvent, AttendanceSession, AttendanceRecord, Notification
-from .serializers import (RegisterSerializer, LoginSerializer, UserProfileSerializer, ChangePasswordSerializer, CourseSerializer, AssignmentSerializer,
+from .serializers import (LoginSerializer, UserProfileSerializer, ChangePasswordSerializer, AccountRecoverySerializer, CourseSerializer, AssignmentSerializer,
     SubmissionSerializer, GradeSerializer, BookSerializer, CalendarEventSerializer, AttendanceSessionSerializer, AttendanceRecordSerializer, NotificationSerializer,
     CourseStudentSerializer, EmptySerializer, AttendanceCheckInSerializer)
 
@@ -54,10 +58,10 @@ def validate_qr_proof(session_id, proof):
         signed_session = int(signed_session)
         bucket = int(bucket)
     except (BadSignature, SignatureExpired, ValueError, TypeError):
-        raise ValidationError({'proof': 'QR kodi eskirgan yoki noto?g?ri.'})
+        raise ValidationError({'proof': 'QR kodi eskirgan yoki noto‘g‘ri.'})
     current = attendance_bucket()
     if signed_session != session_id or bucket not in (current, current - 1):
-        raise ValidationError({'proof': 'QR kodi eskirgan yoki boshqa mashg?ulotga tegishli.'})
+        raise ValidationError({'proof': 'QR kodi eskirgan yoki boshqa mashg‘ulotga tegishli.'})
 
 
 def make_ultrasound_code(session_id, bucket=None):
@@ -75,7 +79,7 @@ def validate_ultrasound_code(session_id, proof):
         make_ultrasound_code(session_id, current - 1),
     )
     if not any(hmac.compare_digest(proof, candidate) for candidate in valid):
-        raise ValidationError({'proof': 'Ultrasound kodi eskirgan yoki noto?g?ri.'})
+        raise ValidationError({'proof': 'Ultrasound kodi eskirgan yoki noto‘g‘ri.'})
 
 
 def distance_meters(lat1, lon1, lat2, lon2):
@@ -90,10 +94,10 @@ def distance_meters(lat1, lon1, lat2, lon2):
 
 def validate_attendance_location(session, latitude, longitude, accuracy):
     if session.location_latitude is None or session.location_longitude is None:
-        raise ValidationError('Bu mashg?ulot uchun auditoriya lokatsiyasi belgilanmagan.')
+        raise ValidationError('Bu mashg‘ulot uchun auditoriya lokatsiyasi belgilanmagan.')
     if accuracy > session.max_location_accuracy_m:
         raise ValidationError({
-            'accuracy': f'Lokatsiya aniqligi yetarli emas ({round(accuracy)} m). Qayta urinib ko?ring.'
+            'accuracy': f'Lokatsiya aniqligi yetarli emas ({round(accuracy)} m). Qayta urinib ko‘ring.'
         })
     distance = distance_meters(
         float(session.location_latitude),
@@ -136,7 +140,7 @@ def clear_refresh_cookie(response):
 
 def auth_response(user, status_code=status.HTTP_200_OK):
     refresh = RefreshToken.for_user(user)
-    response = Response({'access': str(refresh.access_token)}, status=status_code)
+    response = Response({'access': str(refresh.access_token), 'must_change_password': user.must_change_password}, status=status_code)
     return set_refresh_cookie(response, str(refresh))
 
 
@@ -167,20 +171,6 @@ def notify_course_students(course, notification_type, title, message='', link=''
     return len(student_ids)
 
 
-class RegisterAPIView(generics.CreateAPIView):
-    permission_classes = [AllowAny]
-    authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'auth'
-    serializer_class = RegisterSerializer
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return auth_response(user, status.HTTP_201_CREATED)
-
-
 class LoginAPIView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     serializer_class = LoginSerializer
@@ -194,7 +184,91 @@ class LoginAPIView(generics.GenericAPIView):
         user = authenticate(request, **serializer.validated_data)
         if user is None:
             return Response({'detail': 'Foydalanuvchi nomi yoki parol noto‘g‘ri.'}, status=401)
+        if user.must_change_password and user.temporary_password_expires_at and user.temporary_password_expires_at <= timezone.now():
+            return Response({'detail': 'Vaqtinchalik parol muddati tugagan. Yangi parol so‘rang.'}, status=401)
         return auth_response(user)
+
+
+def normalize_phone(value):
+    digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    if digits.startswith('998') and len(digits) == 12:
+        return '+' + digits
+    if len(digits) == 9:
+        return '+998' + digits
+    return '+' + digits if digits else ''
+
+
+def make_temporary_password():
+    alphabet = string.ascii_letters + string.digits
+    return (
+        secrets.choice(string.ascii_uppercase)
+        + secrets.choice(string.ascii_lowercase)
+        + secrets.choice(string.digits)
+        + '!'
+        + ''.join(secrets.choice(alphabet) for _ in range(8))
+    )
+
+
+def send_telegram_message(chat_id, text):
+    token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    if not token or not chat_id:
+        return False
+    payload = json.dumps({
+        'chat_id': str(chat_id),
+        'text': text,
+        'disable_web_page_preview': True,
+    }).encode('utf-8')
+    request = urllib.request.Request(
+        f'https://api.telegram.org/bot{token}/sendMessage',
+        data=payload,
+        headers={'Content-Type': 'application/json'},
+        method='POST',
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=8) as response:
+            body = json.loads(response.read().decode('utf-8'))
+            return bool(body.get('ok'))
+    except Exception:
+        return False
+
+
+class AccountRecoveryAPIView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    serializer_class = AccountRecoverySerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'password_reset'
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        student_id = serializer.validated_data['student_id']
+        supplied_phone = normalize_phone(serializer.validated_data['phone_number'])
+        user = User.objects.filter(student_id=student_id, is_active=True).first()
+
+        if user and normalize_phone(user.phone_number) == supplied_phone and user.telegram_chat_id:
+            temporary_password = make_temporary_password()
+            sent = send_telegram_message(
+                user.telegram_chat_id,
+                (
+                    'MU LMS hisobini tiklash\n\n'
+                    f'Login: {user.username}\n'
+                    f'Vaqtinchalik parol: {temporary_password}\n\n'
+                    'Parol 15 daqiqa amal qiladi. Kirgach yangi parol o‘rnating.'
+                ),
+            )
+            if sent:
+                user.set_password(temporary_password)
+                user.must_change_password = True
+                user.temporary_password_expires_at = timezone.now() + timedelta(minutes=15)
+                user.save(update_fields=['password', 'must_change_password', 'temporary_password_expires_at'])
+
+        return Response({
+            'detail': (
+                'Ma’lumotlar mos bo‘lsa va Telegram hisobingiz oldindan '
+                'bog‘langan bo‘lsa, login va vaqtinchalik parol bot orqali yuborildi.'
+            )
+        })
 
 
 class CookieTokenRefreshAPIView(generics.GenericAPIView):
@@ -599,7 +673,7 @@ class AttendanceChallengeAPIView(generics.GenericAPIView):
     def get(self, request, pk):
         session = self.get_session(request, pk)
         if not session.automated_checkin:
-            raise ValidationError('Bu mashg?ulotda avtomatik davomat yoqilmagan.')
+            raise ValidationError('Bu mashg‘ulotda avtomatik davomat yoqilmagan.')
         if session.ended_at:
             raise ValidationError('Davomat yakunlangan.')
         late_at, ends_at = attendance_times(session)
@@ -676,7 +750,7 @@ class AttendanceCheckInAPIView(generics.GenericAPIView):
             course__is_archived=False,
         )
         if not session.automated_checkin:
-            raise ValidationError('Bu mashg?ulotda avtomatik davomat yoqilmagan.')
+            raise ValidationError('Bu mashg‘ulotda avtomatik davomat yoqilmagan.')
         if session.ended_at:
             raise ValidationError('Davomat yakunlangan.')
 

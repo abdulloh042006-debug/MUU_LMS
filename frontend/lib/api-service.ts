@@ -58,7 +58,7 @@ async function fetchAPI(
     headers.set("Content-Type", "application/json");
   const publicRequest =
     endpoint === "/login/" ||
-    endpoint === "/register/" ||
+    endpoint === "/account/recover/" ||
     endpoint === "/health/";
   if (accessToken && !publicRequest)
     headers.set("Authorization", `Bearer ${accessToken}`);
@@ -99,18 +99,8 @@ const assignment = (a: any) => ({
 });
 export const login = (username: string, password: string) =>
   fetchAPI("/login/", post({ username, password }));
-export const register = (u: any) =>
-  fetchAPI(
-    "/register/",
-    post({
-      username: u.username,
-      email: u.email,
-      fullname:
-        `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.username,
-      password: u.password,
-      confirm_password: u.confirm_password,
-    }),
-  );
+export const requestAccountRecovery = (phone_number: string, student_id: string) =>
+  fetchAPI("/account/recover/", post({ phone_number, student_id }));
 export async function getUserProfile() {
   const u = await fetchAPI("/user/profile/");
   return {

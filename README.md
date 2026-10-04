@@ -7,8 +7,8 @@ Integrated version of https://github.com/Abdullo200604/LMS (original author attr
 ## What works
 
 - Next.js frontend and Django REST backend share one origin using `/api/` proxy routes.
-- Real student registration, password validation, JWT login and automatic access-token refresh. Access tokens stay in browser memory; rotating refresh tokens are kept only in `HttpOnly`, `SameSite=Strict` cookies and are blacklisted on logout/rotation.
-- Signed-in users change their own password from Profile by confirming the current password. There is no public forgot-password or email-verification flow; forgotten passwords are reset only by an administrator through Django admin. Any password change invalidates JWTs issued under the old password.
+- Admin-provisioned student/teacher accounts, password validation, JWT login and automatic access-token refresh. Public registration is disabled. Access tokens stay in browser memory; rotating refresh tokens are kept only in `HttpOnly`, `SameSite=Strict` cookies and are blacklisted on logout/rotation.
+- Signed-in users change their own password from Profile by confirming the current password. Login recovery accepts phone + student ID only for admin-provisioned accounts with a previously linked Telegram chat; the bot sends the username and a 15-minute temporary password, which must be replaced before normal LMS access resumes. Email verification is not implemented. Any password change invalidates JWTs issued under the old password.
 - Real profile editing, learning materials, assignment detail and file submission (1–10 attempts, teacher-configurable), grades, attendance and calendar.
 - Authenticated file downloads. Students cannot set their own grades or register themselves as administrators.
 - Django admin manages users, teacher roles, assignments, learning materials, submissions/grades and calendar events.
@@ -27,9 +27,9 @@ Requires Docker with Compose.
 
 1. Copy `.env.example` to `.env` and set strong random `SECRET_KEY` and `DB_PASSWORD` values.
 2. Run `docker compose up --build -d`.
-3. Open http://localhost:3000 and create your student account.
-4. Create the administrator: `docker compose exec backend python manage.py createsuperuser`.
-5. Open http://localhost:3000/admin/ and sign in with the administrator account. Assign trusted users the `ustoz` role. Teachers then use `/manage` to create courses and add registered students by username. The admin uses a separate session login.
+3. Create the administrator: `docker compose exec backend python manage.py createsuperuser`.
+4. Open http://localhost:3000/admin/ and sign in with the administrator account. Create student/teacher accounts there, including student ID, phone and Telegram chat ID when account recovery is required. Assign trusted users the `ustoz` role.
+5. Teachers then use `/manage` to create courses and add admin-provisioned students by username. The admin uses a separate session login.
 
 The database and uploaded files survive container recreation. Do not run `docker compose down -v` unless you intend to delete stored data.
 

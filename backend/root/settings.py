@@ -96,10 +96,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
-    'DEFAULT_THROTTLE_RATES': {'auth': '20/min', 'attendance': '30/min'},
+    'DEFAULT_THROTTLE_RATES': {'auth': '20/min', 'attendance': '30/min', 'password_reset': '5/hour'},
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',),
+        'api.access.LMSJWTAuthentication',),
 
     'DATETIME_INPUT_FORMATS': ['iso-8601', '%d-%m-%Y %H:%M:%S'],
     'DATE_INPUT_FORMATS': ['iso-8601', '%d-%m-%Y'],
@@ -256,6 +256,8 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_OBTAIN_SERIALIZER": "rest_framework_simplejwt.serializers.TokenObtainSlidingSerializer",
     "SLIDING_TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSlidingSerializer",
 }
+
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 22 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024

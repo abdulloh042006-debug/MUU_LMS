@@ -1,4 +1,5 @@
 import tempfile
+from unittest.mock import patch
 from datetime import timedelta
 from django.db import connection
 from django.test import override_settings
@@ -33,16 +34,10 @@ class IntegrationTests(APITestCase):
         self.assertEqual(list(Notification.objects.filter(user=self.student).values_list('id',flat=True)),[second.pk,first.pk])
         self.assertEqual(str(second),'student: Ikkinchi')
 
-    def test_registration_cannot_escalate_privileges(self):
-        r=self.client.post('/api/register/', {'username':'newstudent','fullname':'New Student','email':'new@example.com','password':'StrongPass!246','confirm_password':'StrongPass!246','role':'admin','is_staff':True,'is_superuser':True}, format='json')
-        self.assertEqual(r.status_code,201,r.data)
-        user=User.objects.get(username='newstudent')
-        self.assertEqual(user.role,'student');self.assertFalse(user.is_staff);self.assertFalse(user.is_superuser)
-        self.assertNotIn('password',r.data);self.assertNotIn('refresh',r.data)
-        self.assertIn('lms-refresh',r.cookies);self.assertTrue(r.cookies['lms-refresh']['httponly'])
-        self.assertEqual(r.cookies['lms-refresh']['samesite'],'Strict')
-        self.client.credentials(HTTP_AUTHORIZATION='Bearer '+r.data['access'])
-        self.assertEqual(self.client.get('/api/user/profile/').data['email'],'new@example.com')
+    def test_public_registration_is_disabled(self):
+        r=self.client.post('/api/register/', {'username':'newstudent','password':'StrongPass!246'}, format='json')
+        self.assertEqual(r.status_code,404)
+        self.assertFalse(User.objects.filter(username='newstudent').exists())
 
     def test_login_refresh_and_invalid_password(self):
         self.assertEqual(self.client.post('/api/login/',{'username':'student','password':'wrong'}).status_code,401)
@@ -116,10 +111,45 @@ class IntegrationTests(APITestCase):
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get(book.file.url).status_code,401)
 
-    def test_password_confirmation_and_weak_password(self):
-        for password,confirm in [('123','123'),('StrongPass!246','wrong')]:
-            r=self.client.post('/api/register/',{'username':'invalid','fullname':'Student','password':password,'confirm_password':confirm},format='json')
-            self.assertEqual(r.status_code,400)
+    @patch('api.views.send_telegram_message', return_value=True)
+    def test_account_recovery_uses_admin_identity_and_forces_password_change(self, mock_send):
+        self.student.student_id='ST-2026-001'
+        self.student.phone_number='+998 90 123 45 67'
+        self.student.telegram_chat_id='123456789'
+        self.student.save(update_fields=['student_id','phone_number','telegram_chat_id'])
+
+        r=self.client.post('/api/account/recover/',{'student_id':'ST-2026-001','phone_number':'901234567'},format='json')
+        self.assertEqual(r.status_code,200,r.data)
+        mock_send.assert_called_once()
+        message=mock_send.call_args.args[1]
+        self.assertIn('Login: student',message)
+        temporary=message.split('Vaqtinchalik parol: ',1)[1].split('\n',1)[0]
+
+        self.student.refresh_from_db()
+        self.assertTrue(self.student.must_change_password)
+        self.assertGreater(self.student.temporary_password_expires_at,timezone.now())
+        self.assertTrue(self.student.check_password(temporary))
+
+        login=self.client.post('/api/login/',{'username':'student','password':temporary},format='json')
+        self.assertEqual(login.status_code,200,login.data)
+        self.assertTrue(login.data['must_change_password'])
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer '+login.data['access'])
+        self.assertEqual(self.client.get('/api/courses/').status_code,401)
+        self.assertEqual(self.client.get('/api/user/profile/').status_code,200)
+        changed=self.client.post('/api/user/password/change/',{
+            'current_password':temporary,
+            'new_password':'RecoveredStrong!579',
+            'confirm_password':'RecoveredStrong!579',
+        },format='json')
+        self.assertEqual(changed.status_code,200,changed.data)
+        self.student.refresh_from_db()
+        self.assertFalse(self.student.must_change_password)
+        self.assertIsNone(self.student.temporary_password_expires_at)
+
+        mock_send.reset_mock()
+        generic=self.client.post('/api/account/recover/',{'student_id':'NOPE','phone_number':'998901234567'},format='json')
+        self.assertEqual(generic.status_code,200,generic.data)
+        mock_send.assert_not_called()
 
     def test_admin_user_forms_and_superuser_role(self):
         admin=User.objects.create_superuser(username='owner',password='StrongPass!246',fullname='Owner')

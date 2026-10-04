@@ -1,7 +1,7 @@
 # Verification — 2026-10-04
 
 - Django 5.2.17 integration suite: 28 tests passed after authentication, password-management, security/business-logic, notification and automated-attendance changes.
-- Authentication tests cover registration privilege protection, invalid/inactive login, `HttpOnly` + `SameSite=Strict` refresh cookies, refresh-token rotation, blacklist-backed logout, authenticated password change with current-password validation, admin-only password reset UI access, and immediate JWT revocation after the stored password hash changes.
+- Authentication tests cover disabled public registration, admin-only user provisioning UI, invalid/inactive login, `HttpOnly` + `SameSite=Strict` refresh cookies, refresh-token rotation, blacklist-backed logout, authenticated password change, Telegram-backed phone + student-ID recovery, mandatory replacement of temporary passwords, and immediate JWT revocation after the stored password hash changes.
 - `rest_framework_simplejwt.token_blacklist` is enabled; the test database applied its migrations. `makemigrations --check --dry-run`: no project model changes detected.
 - `python manage.py check`: no issues.
 - Next.js 15.5.27 TypeScript checking passed.

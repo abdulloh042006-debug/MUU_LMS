@@ -1,7 +1,25 @@
 """Shared authorization rules for every course-scoped endpoint."""
 from django.db.models import Q
 from rest_framework.permissions import BasePermission
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Course
+
+
+class LMSJWTAuthentication(JWTAuthentication):
+    password_change_allowed_paths = {
+        '/api/user/profile/',
+        '/api/user/password/change/',
+    }
+
+    def authenticate(self, request):
+        result = super().authenticate(request)
+        if not result:
+            return result
+        user, token = result
+        if user.must_change_password and request.path not in self.password_change_allowed_paths:
+            raise AuthenticationFailed('Davom etishdan oldin vaqtinchalik parolni almashtiring.')
+        return user, token
 
 
 def is_admin(user):

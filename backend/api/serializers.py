@@ -22,34 +22,45 @@ def validate_upload(value, *, max_mb=20, allowed_extensions=SAFE_UPLOAD_EXTENSIO
     return value
 
 
-class RegisterSerializer(serializers.ModelSerializer):
-    confirm_password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = ['fullname', 'username', 'email', 'password', 'confirm_password']
-        extra_kwargs = {'password': {'write_only': True}, 'email': {'required': True, 'allow_blank': False}}
-
-    def validate(self, data):
-        if data['password'] != data.pop('confirm_password'):
-            raise serializers.ValidationError({'confirm_password': 'Parollar bir xil emas.'})
-        validate_password(data['password'], User(username=data['username'], fullname=data['fullname'], email=data.get('email', '')))
-        return data
-
-    def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
-
-
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField(write_only=True, trim_whitespace=False)
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    telegram_connected = serializers.SerializerMethodField()
+
+    def get_telegram_connected(self, obj):
+        return bool(obj.telegram_chat_id)
+
     class Meta:
         model = User
-        fields = ['id', 'fullname', 'username', 'role', 'email', 'bio']
-        read_only_fields = ['id', 'username', 'role']
+        fields = [
+            'id', 'fullname', 'username', 'role', 'email', 'bio',
+            'student_id', 'phone_number', 'telegram_connected',
+            'must_change_password',
+        ]
+        read_only_fields = [
+            'id', 'username', 'role', 'student_id', 'phone_number',
+            'telegram_connected', 'must_change_password',
+        ]
+
+
+class AccountRecoverySerializer(serializers.Serializer):
+    phone_number = serializers.CharField(max_length=32)
+    student_id = serializers.CharField(max_length=40)
+
+    def validate_phone_number(self, value):
+        digits = ''.join(ch for ch in value if ch.isdigit())
+        if len(digits) < 9 or len(digits) > 15:
+            raise serializers.ValidationError('Telefon raqam noto‘g‘ri.')
+        return value.strip()
+
+    def validate_student_id(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Talaba ID sini kiriting.')
+        return value
 
 
 class CourseStudentSerializer(serializers.Serializer):
@@ -82,7 +93,9 @@ class ChangePasswordSerializer(serializers.Serializer):
     def save(self, **kwargs):
         user = self.context['request'].user
         user.set_password(self.validated_data['new_password'])
-        user.save(update_fields=['password'])
+        user.must_change_password = False
+        user.temporary_password_expires_at = None
+        user.save(update_fields=['password', 'must_change_password', 'temporary_password_expires_at'])
         return user
 
 
@@ -248,11 +261,11 @@ class AttendanceSessionSerializer(CourseScopedSerializer):
         if automated and (latitude is None or longitude is None):
             raise serializers.ValidationError({'location_latitude': 'Avtomatik davomat uchun auditoriya lokatsiyasi kerak.'})
         if latitude is not None and not (-90 <= latitude <= 90):
-            raise serializers.ValidationError({'location_latitude': 'Latitude -90 va 90 oralig?ida bo?lsin.'})
+            raise serializers.ValidationError({'location_latitude': 'Latitude -90 va 90 oralig‘ida bo‘lsin.'})
         if longitude is not None and not (-180 <= longitude <= 180):
-            raise serializers.ValidationError({'location_longitude': 'Longitude -180 va 180 oralig?ida bo?lsin.'})
+            raise serializers.ValidationError({'location_longitude': 'Longitude -180 va 180 oralig‘ida bo‘lsin.'})
         if attendance_minutes and late_after_minutes and late_after_minutes >= attendance_minutes:
-            raise serializers.ValidationError({'late_after_minutes': 'Kechikish chegarasi davomat oynasidan kichik bo?lsin.'})
+            raise serializers.ValidationError({'late_after_minutes': 'Kechikish chegarasi davomat oynasidan kichik bo‘lsin.'})
         return data
 
     def create(self, validated_data):
