@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/notification-bell";
 import {
   Sheet,
   SheetContent,
@@ -190,6 +191,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
             </span>
           </div>
           <div className="header-account">
+            {!demo && <NotificationBell />}
             <span className="language-label">UZ</span>
             <span className="header-divider" />
             <div className="avatar">

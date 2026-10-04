@@ -4,6 +4,7 @@ import { ProtectedRoute } from "@/components/protected-route";
 import { getMyAttendance } from "@/lib/api-service";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AttendanceCheckIn } from "@/components/attendance-check-in";
 const labels: Record<string, string> = {
   present: "Qatnashdi",
   absent: "Qatnashmadi",
@@ -30,6 +31,9 @@ export default function Attendance() {
             <p>Ustoz tomonidan qayd etilgan holatlar.</p>
           </div>
         </div>
+        <AttendanceCheckIn
+          onCheckedIn={async () => setRows(await getMyAttendance())}
+        />
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

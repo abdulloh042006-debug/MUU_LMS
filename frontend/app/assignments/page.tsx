@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileText, Search, Calendar, ArrowLeft, Plus } from "lucide-react";
+import { FileText, Search, Calendar } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { getAssignments } from "@/lib/api-service";
 import Link from "next/link";
@@ -41,8 +41,7 @@ export default function AssignmentsPage() {
             ? data.filter((a: any) => !course || String(a.course) === course)
             : [],
         );
-      } catch (error: any) {
-        console.error("Error fetching assignments:", error);
+      } catch {
         setError("Topshiriqlarni yuklab bo‘lmadi. Qayta urinib ko‘ring.");
       } finally {
         setIsLoading(false);
@@ -63,23 +62,18 @@ export default function AssignmentsPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="mb-6">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center text-teal-600 hover:text-teal-700"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" /> Bosh sahifaga qaytish
-            </Link>
-          </div>
-
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-            <h1 className="text-2xl font-bold mb-4 md:mb-0">Topshiriqlar</h1>
-            <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+      <main className="workspace-page">
+          <div className="workspace-heading">
+            <div>
+              <p className="eyebrow">VAZIFALAR VA MUDDATLAR</p>
+              <h1>Topshiriqlar</h1>
+              <p>Topshiriqlarni ko‘ring, muddatlarni tekshiring va javob yuboring.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
                 <Input
+                  aria-label="Topshiriqlarni qidirish"
                   placeholder="Topshiriqlarni qidirish..."
                   className="pl-8 w-full md:w-64"
                   value={searchTerm}
@@ -182,8 +176,7 @@ export default function AssignmentsPage() {
               ))}
             </div>
           )}
-        </div>
-      </div>
+      </main>
     </ProtectedRoute>
   );
 }

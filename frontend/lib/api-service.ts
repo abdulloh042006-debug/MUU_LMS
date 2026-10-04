@@ -21,7 +21,7 @@ async function refreshToken() {
       });
       if (!response.ok) {
         clearAccessToken();
-        throw new Error("Session expired. Please sign in again.");
+        throw new Error("Sessiya tugadi. Qayta kiring.");
       }
       const data = await response.json();
       setAccessToken(data.access);
@@ -84,7 +84,7 @@ async function fetchAPI(
                 `${key}: ${Array.isArray(value) ? value.join(" ") : value}`,
             )
             .join("; ")
-        : `Server error (${response.status})`,
+        : `Server xatosi (${response.status})`,
     );
   return data;
 }
@@ -195,7 +195,7 @@ export async function downloadFile(path: string, retry = true): Promise<void> {
     url.origin !== window.location.origin ||
     !url.pathname.startsWith("/media/")
   )
-    throw new Error("Invalid file URL");
+    throw new Error("Fayl manzili noto‘g‘ri.");
   const headers = new Headers();
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
   const response = await fetch(url.pathname, {
@@ -207,7 +207,7 @@ export async function downloadFile(path: string, retry = true): Promise<void> {
     await refreshToken();
     return downloadFile(path, false);
   }
-  if (!response.ok) throw new Error("Unable to download this file");
+  if (!response.ok) throw new Error("Faylni yuklab bo‘lmadi.");
   const blob = URL.createObjectURL(await response.blob());
   const anchor = document.createElement("a");
   anchor.href = blob;
@@ -257,3 +257,21 @@ export const saveAttendance = (id: number, records: any[]) =>
     body: JSON.stringify({ records }),
   });
 export const getMyAttendance = () => fetchAPI("/attendance/my/");
+export const getActiveAttendance = () => fetchAPI("/attendance/active/");
+export const getAttendanceChallenge = (id: number) =>
+  fetchAPI(`/attendance/${id}/challenge/`);
+export const checkInAttendance = (data: {
+  session: number;
+  channel: "qr" | "ultrasound";
+  proof: string;
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+}) => fetchAPI("/attendance/check-in/", post(data));
+export const finalizeAttendance = (id: number) =>
+  fetchAPI(`/attendance/${id}/finalize/`, post({}));
+export const getNotifications = () => fetchAPI("/notifications/");
+export const markNotificationRead = (id: number) =>
+  fetchAPI(`/notifications/${id}/read/`, post({}));
+export const markAllNotificationsRead = () =>
+  fetchAPI("/notifications/read-all/", post({}));

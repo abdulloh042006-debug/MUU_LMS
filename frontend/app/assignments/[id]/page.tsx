@@ -42,8 +42,8 @@ export default function Assignment() {
     e.preventDefault();
     if (!file) return;
     const form = e.currentTarget;
-    if (file.size > 20 * 1024 * 1024) {
-      setError("Fayl 20 MB dan oshmasin.");
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Fayl 10 MB dan oshmasin.");
       return;
     }
     setBusy(true);
@@ -150,13 +150,13 @@ export default function Assignment() {
                       ) : (
                         <form onSubmit={submit} className="space-y-4">
                           <Label htmlFor="submission">
-                            Javob fayli (PDF, Office, matn yoki rasm; 20 MB
+                            Javob fayli (PDF, Office, matn, rasm yoki ZIP; 10 MB
                             gacha)
                           </Label>
                           <Input
                             id="submission"
                             type="file"
-                            accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.webp"
+                            accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.webp,.zip"
                             required
                             onChange={(e) =>
                               setFile(e.target.files?.[0] || null)

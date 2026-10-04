@@ -1,6 +1,7 @@
 "use client";
+
 import { useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
+import { ShieldCheck, UserRound } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { changePassword, updateUserProfile } from "@/lib/api-service";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -8,19 +9,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+type Status = { kind: "success" | "error"; text: string } | null;
 
 export default function Profile() {
   const { user, reloadUser } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
-  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<Status>(null);
   const [saving, setSaving] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState<Status>(null);
   const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
@@ -32,13 +37,20 @@ export default function Profile() {
   async function save(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setMessage("");
+    setStatus(null);
     try {
-      await updateUserProfile({ fullname: name, email, bio });
+      await updateUserProfile({
+        fullname: name.trim(),
+        email: email.trim(),
+        bio: bio.trim(),
+      });
       await reloadUser();
-      setMessage("Profil saqlandi.");
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : String(e));
+      setStatus({ kind: "success", text: "Profil saqlandi." });
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        text: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       setSaving(false);
     }
@@ -46,10 +58,13 @@ export default function Profile() {
 
   async function savePassword(e: FormEvent) {
     e.preventDefault();
-    setPasswordMessage("");
+    setPasswordStatus(null);
 
     if (newPassword !== confirmPassword) {
-      setPasswordMessage("Yangi parollar bir xil emas.");
+      setPasswordStatus({
+        kind: "error",
+        text: "Yangi parollar bir xil emas.",
+      });
       return;
     }
 
@@ -59,9 +74,15 @@ export default function Profile() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setPasswordMessage("Parol muvaffaqiyatli o‘zgartirildi.");
-    } catch (e) {
-      setPasswordMessage(e instanceof Error ? e.message : String(e));
+      setPasswordStatus({
+        kind: "success",
+        text: "Parol muvaffaqiyatli o‘zgartirildi.",
+      });
+    } catch (error) {
+      setPasswordStatus({
+        kind: "error",
+        text: error instanceof Error ? error.message : String(error),
+      });
     } finally {
       setChangingPassword(false);
     }
@@ -69,100 +90,164 @@ export default function Profile() {
 
   return (
     <ProtectedRoute>
-      <main className="max-w-xl mx-auto p-8">
-        <Link href="/dashboard">← Bosh sahifa</Link>
-        <h1 className="text-3xl font-bold my-6">Mening profilim</h1>
-
-        <form onSubmit={save} className="space-y-4">
-          <Label htmlFor="name">Ism-familiya</Label>
-          <Input
-            id="name"
-            required
-            maxLength={50}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <Label htmlFor="email">Elektron pochta</Label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
-          <Label htmlFor="bio">O‘zim haqimda</Label>
-          <Textarea
-            id="bio"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-          />
-
-          <Button disabled={saving}>
-            {saving ? "Saqlanmoqda…" : "Saqlash"}
-          </Button>
-          <p role="status">{message}</p>
-        </form>
-
-        <div className="my-8 border-t" />
-
-        <h2 className="text-xl font-semibold mb-4">Parolni o‘zgartirish</h2>
-        <form onSubmit={savePassword} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="current-password">Joriy parol</Label>
-            <Input
-              id="current-password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-            />
+      <main className="workspace-page">
+        <div className="workspace-heading">
+          <div>
+            <p className="eyebrow">SHAXSIY MA’LUMOT VA XAVFSIZLIK</p>
+            <h1>Mening profilim</h1>
+            <p>Profil ma’lumotlari va hisob parolini bir joydan boshqaring.</p>
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="new-password">Yangi parol</Label>
-            <Input
-              id="new-password"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-          </div>
+        <div className="management-grid">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <UserRound size={20} />
+                <CardTitle>Profil ma’lumotlari</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-5 rounded-lg bg-muted/60 p-4 text-sm">
+                <strong>@{user?.username}</strong>
+                <span className="ml-2 text-muted-foreground">
+                  · {user?.role === "student" ? "Talaba" : "Ustoz"}
+                </span>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Yangi parolni takrorlang</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-          </div>
+              {status &&
+                (status.kind === "success" ? (
+                  <p role="status" className="success-note">
+                    {status.text}
+                  </p>
+                ) : (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertDescription>{status.text}</AlertDescription>
+                  </Alert>
+                ))}
 
-          <p className="text-sm text-muted-foreground">
-            Parolni unutgan bo‘lsangiz, universitet administratoriga murojaat qiling.
-          </p>
+              <form onSubmit={save} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Ism-familiya</Label>
+                  <Input
+                    id="name"
+                    required
+                    maxLength={50}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
 
-          <Button
-            type="submit"
-            disabled={
-              changingPassword ||
-              !currentPassword ||
-              !newPassword ||
-              !confirmPassword
-            }
-          >
-            {changingPassword ? "O‘zgartirilmoqda…" : "Parolni o‘zgartirish"}
-          </Button>
-          <p role="status">{passwordMessage}</p>
-        </form>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Elektron pochta</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bio">O‘zim haqimda</Label>
+                  <Textarea
+                    id="bio"
+                    maxLength={1000}
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                  />
+                </div>
+
+                <Button disabled={saving || !name.trim()}>
+                  {saving ? "Saqlanmoqda…" : "Profilni saqlash"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <ShieldCheck size={20} />
+                <CardTitle>Hisob xavfsizligi</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {passwordStatus &&
+                (passwordStatus.kind === "success" ? (
+                  <p role="status" className="success-note">
+                    {passwordStatus.text}
+                  </p>
+                ) : (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertDescription>{passwordStatus.text}</AlertDescription>
+                  </Alert>
+                ))}
+
+              <form onSubmit={savePassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Joriy parol</Label>
+                  <Input
+                    id="current-password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">Yangi parol</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">
+                    Yangi parolni takrorlang
+                  </Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={8}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  Kamida 8 belgi ishlating. Parolni unutgan bo‘lsangiz,
+                  universitet administratoriga murojaat qiling.
+                </p>
+
+                <Button
+                  type="submit"
+                  disabled={
+                    changingPassword ||
+                    !currentPassword ||
+                    !newPassword ||
+                    !confirmPassword
+                  }
+                >
+                  {changingPassword
+                    ? "O‘zgartirilmoqda…"
+                    : "Parolni o‘zgartirish"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </ProtectedRoute>
   );

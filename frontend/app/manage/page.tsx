@@ -28,6 +28,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { Download, Trash2, Plus, Users, Check } from "lucide-react";
+import { AttendanceBroadcastPanel } from "@/components/attendance-broadcast-panel";
 
 type Row = { id: number; [key: string]: any };
 const stamp = (value: FormDataEntryValue | null) =>
@@ -37,6 +38,27 @@ const localDate = (value: string) => {
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
 };
+const freshLocation = () =>
+  new Promise<GeolocationPosition>((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Qurilmada lokatsiya xizmati topilmadi."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      resolve,
+      () =>
+        reject(
+          new Error(
+            "Lokatsiyani olishga ruxsat bering va GPS/location xizmatini yoqing.",
+          ),
+        ),
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 12000,
+      },
+    );
+  });
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="space-y-2">
@@ -409,6 +431,7 @@ export default function Management() {
                               aria-label="Material fayli"
                               type="file"
                               name="file"
+                              accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.webp,.zip"
                               required
                             />
                           </Field>
@@ -557,6 +580,7 @@ export default function Management() {
                                 aria-label="Topshiriq fayli"
                                 name="file"
                                 type="file"
+                                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.webp,.zip"
                               />
                             </Field>
                           )}
@@ -725,13 +749,19 @@ export default function Management() {
                       <CardContent>
                         <form
                           className="space-y-4"
-                          onSubmit={submitForm((d) =>
-                            api.createAttendanceSession({
+                          onSubmit={submitForm(async (d) => {
+                            const position = await freshLocation();
+                            return api.createAttendanceSession({
                               course: selected,
                               topic: d.get("topic"),
                               starts_at: stamp(d.get("starts_at")),
-                            }),
-                          )}
+                              automated_checkin: true,
+                              location_latitude: position.coords.latitude,
+                              location_longitude: position.coords.longitude,
+                              location_radius_m: 80,
+                              max_location_accuracy_m: 100,
+                            });
+                          })}
                         >
                           <Field label="Mashg‘ulot mavzusi">
                             <Input
@@ -745,11 +775,15 @@ export default function Management() {
                               aria-label="Mashg‘ulot boshlanishi"
                               name="starts_at"
                               type="datetime-local"
+                              defaultValue={localDate(new Date().toISOString())}
                               required
                             />
                           </Field>
+                          <p className="text-sm text-muted-foreground">
+                            Boshlashda auditoriya lokatsiyasi olinadi. Davomat oynasi kursdagi talabalar soniga qarab avtomatik belgilanadi.
+                          </p>
                           <Button disabled={busy || !canCreate}>
-                            Mashg‘ulot yaratish
+                            Davomatni boshlash
                           </Button>
                         </form>
                         <div className="mt-6">
@@ -773,6 +807,20 @@ export default function Management() {
                             ))}
                           </select>
                         </div>
+                        {activeSession > 0 && (
+                          <AttendanceBroadcastPanel
+                            sessionId={activeSession}
+                            onChanged={async () => {
+                              await load();
+                              const data = await api.getAttendanceRecords(activeSession);
+                              setMarks(
+                                Object.fromEntries(
+                                  data.map((r: Row) => [r.student, r.status]),
+                                ),
+                              );
+                            }}
+                          />
+                        )}
                       </CardContent>
                     </Card>
                     <Card>
@@ -788,25 +836,49 @@ export default function Management() {
                               deb hisoblanmaydi.
                             </p>
                             {students.map((s) => (
-                              <div className="manage-row" key={s.id}>
+                              <div className="manage-row wrap" key={s.id}>
                                 <strong>{s.fullname}</strong>
-                                <select
-                                  aria-label={`${s.fullname} davomati`}
-                                  value={marks[s.id] || ""}
-                                  onChange={(e) =>
-                                    setMarks((m) => ({
-                                      ...m,
-                                      [s.id]: e.target.value,
-                                    }))
-                                  }
-                                  className="native-select attendance-select"
-                                >
-                                  <option value="">Belgilanmagan</option>
-                                  <option value="present">Qatnashdi</option>
-                                  <option value="absent">Qatnashmadi</option>
-                                  <option value="late">Kechikdi</option>
-                                  <option value="excused">Sababli</option>
-                                </select>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {[
+                                    ["present", "Keldi"],
+                                    ["late", "Kech qoldi"],
+                                    ["absent", "Kelmadi"],
+                                    ["excused", "Sababli"],
+                                  ].map(([status, label]) => (
+                                    <Button
+                                      key={status}
+                                      type="button"
+                                      size="sm"
+                                      variant={
+                                        marks[s.id] === status
+                                          ? status === "absent"
+                                            ? "destructive"
+                                            : "default"
+                                          : "outline"
+                                      }
+                                      onClick={() =>
+                                        setMarks((m) => ({
+                                          ...m,
+                                          [s.id]: status,
+                                        }))
+                                      }
+                                    >
+                                      {label}
+                                    </Button>
+                                  ))}
+                                  {marks[s.id] && (
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() =>
+                                        setMarks((m) => ({ ...m, [s.id]: "" }))
+                                      }
+                                    >
+                                      Tozalash
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             ))}
                             <Button

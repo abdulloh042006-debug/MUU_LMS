@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       api.clearAccessToken();
       setUser(null);
-      setError(e instanceof Error ? e.message : "Unable to sign in");
+      setError(e instanceof Error ? e.message : "Tizimga kirib bo‘lmadi.");
       throw e;
     } finally {
       setLoading(false);

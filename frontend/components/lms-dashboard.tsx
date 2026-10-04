@@ -1,7 +1,7 @@
 "use client"
 import {useEffect,useState} from "react"
 import Link from "next/link"
-import {ArrowRight,ArrowUpRight,BookOpen,ClipboardList,CalendarDays,ChartNoAxesCombined,Clock,Check,FileText,ChevronRight,GraduationCap,Download} from "lucide-react"
+import {ArrowRight,ArrowUpRight,BookOpen,ClipboardList,CalendarDays,ChartNoAxesCombined,Clock,Check,FileText,ChevronRight,GraduationCap} from "lucide-react"
 import {getBooks,getAssignments,getMyGrades,getCalendar} from "@/lib/api-service"
 import {useAuth} from "@/contexts/auth-context"
 import {Button} from "@/components/ui/button"

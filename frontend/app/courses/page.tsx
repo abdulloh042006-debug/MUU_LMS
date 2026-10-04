@@ -1,71 +1,98 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { BookOpen, Search } from "lucide-react";
 import { getBooks } from "@/lib/api-service";
 import { ProtectedRoute } from "@/components/protected-route";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
 export default function CoursesPage() {
-  const [books, setBooks] = useState<any[]>([]),
-    [query, setQuery] = useState(""),
-    [error, setError] = useState(""),
-    [loading, setLoading] = useState(true);
+  const [books, setBooks] = useState<any[]>([]);
+  const [query, setQuery] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     getBooks()
       .then((data) => {
-        const course = new URLSearchParams(window.location.search).get(
-          "course",
-        );
+        const course = new URLSearchParams(window.location.search).get("course");
         setBooks(
           course ? data.filter((b: any) => String(b.course) === course) : data,
         );
       })
-      .catch((e) => setError(e.message))
+      .catch(() =>
+        setError("Materiallarni yuklab bo‘lmadi. Qayta urinib ko‘ring."),
+      )
       .finally(() => setLoading(false));
   }, []);
+
+  const filteredBooks = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return books;
+    return books.filter((book) =>
+      `${book.title} ${book.subject}`.toLowerCase().includes(normalized),
+    );
+  }, [books, query]);
+
   return (
     <ProtectedRoute>
-      <main className="container mx-auto px-4 py-8">
-        <Link href="/dashboard" className="text-teal-700">
-          ← Bosh sahifa
-        </Link>
-        <h1 className="text-3xl font-bold my-6">O‘quv materiallari</h1>
-        <Input
-          aria-label="Materiallarni qidirish"
-          placeholder="Materiallarni qidirish..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="max-w-md mb-6"
-        />
-        {error && <p role="alert">{error}</p>}
+      <main className="workspace-page">
+        <div className="workspace-heading">
+          <div>
+            <p className="eyebrow">DARSLIK VA FAYLLAR</p>
+            <h1>O‘quv materiallari</h1>
+            <p>Kurslaringiz bo‘yicha ustoz joylagan materiallarni toping va oching.</p>
+          </div>
+          <div className="relative w-full md:w-72">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              aria-label="Materiallarni qidirish"
+              placeholder="Materiallarni qidirish..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-9 bg-white"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         {loading ? (
           <p>Yuklanmoqda…</p>
-        ) : (
-          <div className="grid md:grid-cols-3 gap-6">
-            {books
-              .filter((b) =>
-                (b.title + " " + b.subject)
-                  .toLowerCase()
-                  .includes(query.toLowerCase()),
-              )
-              .map((b) => (
-                <Card key={b.id}>
-                  <CardContent className="p-6">
-                    <p className="text-teal-700">{b.subject}</p>
-                    <h2 className="text-xl font-semibold my-4">{b.title}</h2>
-                    <Button asChild>
-                      <Link href={`/courses/${b.id}`}>Materialni ochish</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+        ) : !filteredBooks.length ? (
+          <div className="empty-message">
+            <BookOpen />
+            <p>
+              {query
+                ? "Qidiruv bo‘yicha material topilmadi."
+                : "Hozircha materiallar yo‘q. O‘qituvchi yuklagach shu yerda ko‘rinadi."}
+            </p>
           </div>
-        )}
-        {!loading && !error && !books.length && (
-          <p>
-            Hozircha materiallar yo‘q. O‘qituvchi ularni yuklagach ko‘rinadi.
-          </p>
+        ) : (
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {filteredBooks.map((book) => (
+              <Card key={book.id}>
+                <CardContent className="p-6">
+                  <span className="subject-tag">{book.subject}</span>
+                  <h2 className="text-xl font-semibold my-4">{book.title}</h2>
+                  <p className="text-sm text-muted-foreground mb-5">
+                    {book.course_title || "O‘quv materiali"}
+                  </p>
+                  <Button asChild>
+                    <Link href={`/courses/${book.id}`}>Materialni ochish</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
       </main>
     </ProtectedRoute>

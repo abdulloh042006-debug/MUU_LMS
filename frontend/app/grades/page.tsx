@@ -4,9 +4,8 @@ import { useState, useEffect } from "react";
 import { ProtectedRoute } from "@/components/protected-route";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Award, ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
+import { Award, TrendingUp, TrendingDown } from "lucide-react";
 import { getMyGrades } from "@/lib/api-service";
-import Link from "next/link";
 
 interface Grade {
   id: string;
@@ -32,8 +31,7 @@ export default function GradesPage() {
         setError(null);
         const data = await getMyGrades();
         setGrades(Array.isArray(data) ? data : []);
-      } catch (error: any) {
-        console.error("Error fetching grades:", error);
+      } catch {
         setError("Baholarni yuklab bo‘lmadi. Qayta urinib ko‘ring.");
       } finally {
         setIsLoading(false);
@@ -85,18 +83,14 @@ export default function GradesPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="mb-6">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center text-teal-600 hover:text-teal-700"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" /> Bosh sahifaga qaytish
-            </Link>
+      <main className="workspace-page">
+          <div className="workspace-heading">
+            <div>
+              <p className="eyebrow">NATIJALAR VA USTOZ IZOHILARI</p>
+              <h1>Mening baholarim</h1>
+              <p>Baholangan topshiriqlar va berilgan fikr-mulohazalarni kuzating.</p>
+            </div>
           </div>
-
-          <h1 className="text-2xl font-bold mb-8">Mening baholarim</h1>
 
           {error && (
             <Alert variant="destructive" className="mb-6">
@@ -169,7 +163,7 @@ export default function GradesPage() {
                 <Card className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm mb-1">Total Graded</p>
+                      <p className="text-gray-500 text-sm mb-1">Baholangan jami</p>
                       <p className="text-2xl font-semibold">{stats.total}</p>
                     </div>
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -201,7 +195,7 @@ export default function GradesPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <h3 className="font-semibold text-lg mb-2">
-                              {grade.assignment?.title || "Assignment"}
+                              {grade.assignment?.title || "Topshiriq"}
                             </h3>
 
                             {grade.feedback && (
@@ -245,7 +239,7 @@ export default function GradesPage() {
                                     : grade.grade >= 80
                                       ? "Yaxshi"
                                       : grade.grade >= 70
-                                        ? "Satisfactory"
+                                        ? "Qoniqarli"
                                         : "Yaxshilash kerak"}
                                 </div>
                               </div>
@@ -268,8 +262,7 @@ export default function GradesPage() {
               )}
             </>
           )}
-        </div>
-      </div>
+      </main>
     </ProtectedRoute>
   );
 }

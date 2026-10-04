@@ -3,11 +3,9 @@
 import { useState, useEffect } from "react";
 import { ProtectedRoute } from "@/components/protected-route";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CalendarIcon, ArrowLeft, Plus, Clock } from "lucide-react";
+import { CalendarIcon, Clock } from "lucide-react";
 import { getCalendar } from "@/lib/api-service";
-import Link from "next/link";
 
 interface CalendarEvent {
   id: string;
@@ -22,7 +20,6 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
 
   useEffect(() => {
     const fetchCalendar = async () => {
@@ -31,8 +28,7 @@ export default function CalendarPage() {
         setError(null);
         const data = await getCalendar();
         setEvents(Array.isArray(data) ? data : []);
-      } catch (error: any) {
-        console.error("Error fetching calendar:", error);
+      } catch {
         setError("Taqvimni yuklab bo‘lmadi. Qayta urinib ko‘ring.");
       } finally {
         setIsLoading(false);
@@ -81,19 +77,13 @@ export default function CalendarPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="mb-6">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center text-teal-600 hover:text-teal-700"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" /> Bosh sahifaga qaytish
-            </Link>
-          </div>
-
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-            <h1 className="text-2xl font-bold mb-4 md:mb-0">Taqvim</h1>
+      <main className="workspace-page">
+          <div className="workspace-heading">
+            <div>
+              <p className="eyebrow">DARS VA MUHIM SANALAR</p>
+              <h1>Taqvim</h1>
+              <p>Bugungi va yaqinlashayotgan dars, imtihon hamda tadbirlarni ko‘ring.</p>
+            </div>
           </div>
 
           {error && (
@@ -229,7 +219,7 @@ export default function CalendarPage() {
                         <h4 className="font-medium">{event.title}</h4>
                         {event.start_date && (
                           <p className="text-sm text-gray-500">
-                            {formatDate(event.start_date)} at{" "}
+                            {formatDate(event.start_date)} ·{" "}
                             {formatTime(event.start_date)}
                           </p>
                         )}
@@ -240,8 +230,7 @@ export default function CalendarPage() {
               </CardContent>
             </Card>
           )}
-        </div>
-      </div>
+      </main>
     </ProtectedRoute>
   );
 }

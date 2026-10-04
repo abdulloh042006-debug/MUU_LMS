@@ -124,6 +124,14 @@ class AttendanceSession(models.Model):
     course = models.ForeignKey(Course, on_delete=models.PROTECT, related_name='attendance_sessions')
     starts_at = models.DateTimeField()
     topic = models.CharField(max_length=200)
+    automated_checkin = models.BooleanField(default=False)
+    attendance_minutes = models.PositiveSmallIntegerField(default=3, validators=[MinValueValidator(2), MaxValueValidator(15)])
+    late_after_minutes = models.PositiveSmallIntegerField(default=2, validators=[MinValueValidator(1), MaxValueValidator(14)])
+    location_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    location_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    location_radius_m = models.PositiveSmallIntegerField(default=80, validators=[MinValueValidator(10), MaxValueValidator(500)])
+    max_location_accuracy_m = models.PositiveSmallIntegerField(default=100, validators=[MinValueValidator(5), MaxValueValidator(500)])
+    ended_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-starts_at']
@@ -132,10 +140,15 @@ class AttendanceSession(models.Model):
 
 class AttendanceRecord(models.Model):
     STATUS_CHOICES = [('present', 'Qatnashdi'), ('absent', 'Qatnashmadi'), ('late', 'Kechikdi'), ('excused', 'Sababli')]
+    SOURCE_CHOICES = [('manual', 'Qo‘lda'), ('qr', 'QR'), ('ultrasound', 'Ultrasound'), ('system', 'Tizim')]
     session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name='records')
     student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='attendance_records')
     status = models.CharField(max_length=12, choices=STATUS_CHOICES)
     note = models.CharField(max_length=250, blank=True)
+    source = models.CharField(max_length=12, choices=SOURCE_CHOICES, default='manual')
+    checked_at = models.DateTimeField(null=True, blank=True)
+    distance_m = models.PositiveIntegerField(null=True, blank=True)
+    location_accuracy_m = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['session', 'student'], name='unique_attendance_record')]
