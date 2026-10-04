@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
-from .models import User, Assignment, Submission, Book, CalendarEvent, Course, AttendanceSession, AttendanceRecord
+from .models import User, Assignment, Submission, Book, CalendarEvent, Course, AttendanceSession, AttendanceRecord, Notification
 
 class LMSUserCreationForm(UserCreationForm):
     class Meta:
@@ -63,3 +63,11 @@ class CourseAdmin(admin.ModelAdmin):
 
 admin.site.register(AttendanceSession)
 admin.site.register(AttendanceRecord)
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'type', 'title', 'is_read', 'created_at')
+    list_filter = ('type', 'is_read', 'created_at')
+    search_fields = ('user__username', 'user__fullname', 'title', 'message')
+    readonly_fields = ('created_at',)

@@ -34,4 +34,6 @@ Administrator Django admin orqali rollarni, eski ma’lumotlarning kursga tegish
 
 README.md dagi Docker yoki mahalliy yo‘riqnomadan foydalaning. Talaba ro‘yxatdan o‘tadi; administrator ustoz rolini beradi; ustoz kurs ochib talabani username bilan biriktiradi. Keyin material/topshiriq/davomat haqiqiy API orqali ishlaydi.
 
+Notification tizimining backend foundation modeli qo‘shildi (`Notification`: user, type, title, message, link, is_read, created_at) va admin panel orqali ko‘rinadi. Avtomatik notification triggerlari, API va frontend bell UI keyingi bosqichda ulanadi.
+
 HEMIS integratsiyasi, email verification, ommaviy/avtomatik parol tiklash, video hosting va universitet bo‘yicha rasmiy hisobotlar bu versiyada yo‘q. Parolini unutgan foydalanuvchi uchun reset faqat administrator tomonidan Django admin orqali bajariladi. Internetga joylash va universitet qabul sinovi alohida bajarilishi kerak.

@@ -139,3 +139,32 @@ class AttendanceRecord(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['session', 'student'], name='unique_attendance_record')]
+
+
+class Notification(models.Model):
+    TYPE_CHOICES = [
+        ('grade', 'Baho'),
+        ('assignment', 'Topshiriq'),
+        ('material', 'Material'),
+        ('submission', 'Javob'),
+        ('attendance', 'Davomat'),
+        ('course', 'Kurs'),
+        ('system', 'Tizim'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    title = models.CharField(max_length=180)
+    message = models.TextField(blank=True)
+    link = models.CharField(max_length=500, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-id']
+        indexes = [
+            models.Index(fields=['user', 'is_read', '-created_at'], name='notif_user_read_created_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username}: {self.title}'

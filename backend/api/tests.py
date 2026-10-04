@@ -6,7 +6,7 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase
-from .models import User, Assignment, Submission, CalendarEvent, Book, Course, AttendanceSession, AttendanceRecord
+from .models import User, Assignment, Submission, CalendarEvent, Book, Course, AttendanceSession, AttendanceRecord, Notification
 from django.core.cache import cache
 
 class IntegrationTests(APITestCase):
@@ -25,6 +25,13 @@ class IntegrationTests(APITestCase):
 
     def authenticate(self, user=None):
         self.client.force_authenticate(user or self.student)
+
+    def test_notification_model_defaults_and_ordering(self):
+        first=Notification.objects.create(user=self.student,type='assignment',title='Birinchi',message='Yangi topshiriq',link='/assignments/1')
+        second=Notification.objects.create(user=self.student,type='grade',title='Ikkinchi',message='Baho qo‘yildi',link='/grades')
+        self.assertFalse(first.is_read)
+        self.assertEqual(list(Notification.objects.filter(user=self.student).values_list('id',flat=True)),[second.pk,first.pk])
+        self.assertEqual(str(second),'student: Ikkinchi')
 
     def test_registration_cannot_escalate_privileges(self):
         r=self.client.post('/api/register/', {'username':'newstudent','fullname':'New Student','email':'new@example.com','password':'StrongPass!246','confirm_password':'StrongPass!246','role':'admin','is_staff':True,'is_superuser':True}, format='json')
