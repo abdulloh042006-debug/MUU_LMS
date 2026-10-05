@@ -274,6 +274,13 @@ export function AttendanceCheckIn({
     if (!silent) setBusySession(session.id);
     setError("");
     setMessage("");
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      if (!silent) {
+        setBusySession(null);
+        setError("Mikrofon uchun HTTPS yoki Chrome’da ushbu lokal manzilni xavfsiz origin sifatida yoqish kerak.");
+      }
+      return;
+    }
     const geoPromise = freshLocation();
     let stream: MediaStream | null = null;
     let ctx: AudioContext | null = null;

@@ -265,6 +265,13 @@ export function PortalShell({ children }: { children: ReactNode }) {
               <span>Topshiriqlar</span>
             </Link>
             <Link
+              href={demo ? "/preview#overview" : "/attendance"}
+              className={path.startsWith("/attendance") ? "active" : ""}
+            >
+              <ScanLine />
+              <span>Skaner</span>
+            </Link>
+            <Link
               href={demo ? "/preview#overview" : "/notifications"}
               className={path.startsWith("/notifications") ? "active" : ""}
             >
