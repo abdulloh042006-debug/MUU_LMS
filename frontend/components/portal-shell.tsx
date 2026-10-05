@@ -4,9 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  BookOpen,
   ClipboardList,
-  ChartNoAxesCombined,
   CalendarDays,
   UserRound,
   LogOut,
@@ -14,7 +12,9 @@ import {
   Menu,
   GraduationCap,
   Settings2,
-  UserCheck,
+  Bell,
+  ShieldCheck,
+  ScanLine,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -34,9 +34,9 @@ const links = [
     id: "overview",
   },
   {
-    href: "/courses",
-    label: "O‘quv materiallari",
-    icon: BookOpen,
+    href: "/my-courses",
+    label: "Darslarim",
+    icon: GraduationCap,
     id: "materials",
   },
   {
@@ -46,15 +46,14 @@ const links = [
     id: "assignments",
   },
   {
-    href: "/grades",
-    label: "Baholarim",
-    icon: ChartNoAxesCombined,
-    id: "results",
+    href: "/calendar",
+    label: "Taqvim",
+    icon: CalendarDays,
+    id: "schedule",
   },
-  { href: "/calendar", label: "Taqvim", icon: CalendarDays, id: "schedule" },
   {
     href: "/profile",
-    label: "Mening profilim",
+    label: "Profil",
     icon: UserRound,
     id: "overview",
   },
@@ -75,33 +74,34 @@ export function PortalShell({ children }: { children: ReactNode }) {
     { user, logout } = useAuth(),
     [open, setOpen] = useState(false);
   if (["/", "/login", "/register"].includes(path)) return <>{children}</>;
-  const teacher = user?.role === "ustoz" || user?.role === "admin";
+  const admin = user?.role === "admin";
+  const teacher = user?.role === "ustoz" || admin;
   const menuLinks = [
-    ...links.slice(0, 1),
-    {
-      href: "/my-courses",
-      label: "Mening kurslarim",
-      icon: GraduationCap,
-      id: "materials",
-    },
-    ...links.slice(1).filter((l) => !teacher || l.href !== "/grades"),
+    ...links.slice(0, 4),
+    ...(!teacher
+      ? [{ href: "/attendance", label: "Davomat", icon: ScanLine, id: "attendance" }]
+      : []),
+    ...links.slice(4),
     ...(teacher
       ? [
           {
             href: "/manage",
-            label: "Ustoz boshqaruvi",
+            label: admin ? "Ta’lim boshqaruvi" : "Ustoz boshqaruvi",
             icon: Settings2,
             id: "overview",
           },
+          ...(admin
+            ? [
+                {
+                  href: "/admin-panel",
+                  label: "Admin boshqaruvi",
+                  icon: ShieldCheck,
+                  id: "overview",
+                },
+              ]
+            : []),
         ]
-      : [
-          {
-            href: "/attendance",
-            label: "Davomatim",
-            icon: UserCheck,
-            id: "schedule",
-          },
-        ]),
+      : []),
   ];
   const demo = path === "/preview",
     title =
@@ -110,10 +110,10 @@ export function PortalShell({ children }: { children: ReactNode }) {
     <>
       <Brand />
       <div className="sidebar-caption">
-        {teacher ? "USTOZ KABINETI" : "TALABA KABINETI"}
+        {admin ? "ADMIN KABINETI" : teacher ? "USTOZ KABINETI" : "TALABA KABINETI"}
       </div>
       <nav aria-label="Asosiy menyu" className="mu-nav">
-        {(demo ? links : menuLinks).map(({ href, label, icon: Icon, id }) => (
+        {menuLinks.map(({ href, label, icon: Icon, id }) => (
           <Link
             key={href}
             href={demo ? `/preview#${id}` : href}
@@ -162,7 +162,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
     </>
   );
   return (
-    <div className="portal">
+    <div className={`portal ${teacher ? "teacher-portal" : "student-portal"}`}>
       {!demo && <AttendancePermissionSetup />}
       <a className="skip-link" href="#main-content">
         Asosiy qismga o‘tish
@@ -171,6 +171,14 @@ export function PortalShell({ children }: { children: ReactNode }) {
       <div className="portal-body">
         <header className="portal-header">
           <div className="header-context">
+            {!teacher && (
+              <Link
+                href={demo ? "/preview#overview" : "/dashboard"}
+                className="mobile-lms-title"
+              >
+                MU LMS
+              </Link>
+            )}
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
                 <Button
@@ -188,7 +196,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
               </SheetContent>
             </Sheet>
             <span className="header-breadcrumb">
-              {teacher ? "Ustoz portali" : "Talaba portali"} <span>/</span>{" "}
+              {admin ? "Admin portali" : teacher ? "Ustoz portali" : "Talaba portali"} <span>/</span>{" "}
               <strong>{title}</strong>
             </span>
           </div>
@@ -206,9 +214,11 @@ export function PortalShell({ children }: { children: ReactNode }) {
               <small>
                 {demo
                   ? "Namoyish kabineti"
-                  : user?.role === "ustoz"
-                    ? "O‘qituvchi"
-                    : "Shaxsiy kabinet"}
+                  : admin
+                    ? "Administrator"
+                    : user?.role === "ustoz"
+                      ? "O‘qituvchi"
+                      : "Shaxsiy kabinet"}
               </small>
             </div>
           </div>
@@ -225,6 +235,51 @@ export function PortalShell({ children }: { children: ReactNode }) {
         <div id="main-content" className="portal-surface">
           {children}
         </div>
+        {!teacher && (
+          <nav className="mobile-bottom-nav" aria-label="Mobil asosiy menyu">
+            <Link
+              href={demo ? "/preview#overview" : "/dashboard"}
+              className={demo || path === "/dashboard" ? "active" : ""}
+            >
+              <LayoutDashboard />
+              <span>Bosh sahifa</span>
+            </Link>
+            <Link
+              href={demo ? "/preview#materials" : "/my-courses"}
+              className={
+                path.startsWith("/my-courses") ||
+                path.startsWith("/courses") ||
+                path.startsWith("/lessons")
+                  ? "active"
+                  : ""
+              }
+            >
+              <GraduationCap />
+              <span>Darslar</span>
+            </Link>
+            <Link
+              href={demo ? "/preview#assignments" : "/assignments"}
+              className={path.startsWith("/assignments") ? "active" : ""}
+            >
+              <ClipboardList />
+              <span>Topshiriqlar</span>
+            </Link>
+            <Link
+              href={demo ? "/preview#overview" : "/notifications"}
+              className={path.startsWith("/notifications") ? "active" : ""}
+            >
+              <Bell />
+              <span>Xabarlar</span>
+            </Link>
+            <Link
+              href={demo ? "/preview#overview" : "/profile"}
+              className={path.startsWith("/profile") ? "active" : ""}
+            >
+              <UserRound />
+              <span>Profil</span>
+            </Link>
+          </nav>
+        )}
         <footer className="portal-footer">
           <span>Millat Umidi uchun LMS konsepti</span>
           <span>Ta’lim. Rivojlanish. Natija.</span>

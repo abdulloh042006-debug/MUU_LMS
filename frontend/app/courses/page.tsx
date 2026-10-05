@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { BookOpen, Search } from "lucide-react";
 import { getBooks } from "@/lib/api-service";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -10,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export default function CoursesPage() {
+function CoursesContent() {
+  const course = useSearchParams().get("course");
   const [books, setBooks] = useState<any[]>([]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
@@ -18,12 +20,7 @@ export default function CoursesPage() {
 
   useEffect(() => {
     getBooks()
-      .then((data) => {
-        const course = new URLSearchParams(window.location.search).get("course");
-        setBooks(
-          course ? data.filter((b: any) => String(b.course) === course) : data,
-        );
-      })
+      .then(setBooks)
       .catch(() =>
         setError("Materiallarni yuklab bo‘lmadi. Qayta urinib ko‘ring."),
       )
@@ -32,11 +29,11 @@ export default function CoursesPage() {
 
   const filteredBooks = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return books;
     return books.filter((book) =>
-      `${book.title} ${book.subject}`.toLowerCase().includes(normalized),
+      (!course || String(book.course) === course) &&
+      (!normalized || `${book.title} ${book.subject}`.toLowerCase().includes(normalized)),
     );
-  }, [books, query]);
+  }, [books, course, query]);
 
   return (
     <ProtectedRoute>
@@ -45,7 +42,7 @@ export default function CoursesPage() {
           <div>
             <p className="eyebrow">DARSLIK VA FAYLLAR</p>
             <h1>O‘quv materiallari</h1>
-            <p>Kurslaringiz bo‘yicha ustoz joylagan materiallarni toping va oching.</p>
+            <p>Darslaringiz bo‘yicha ustoz joylagan materiallarni toping va oching.</p>
           </div>
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -97,4 +94,8 @@ export default function CoursesPage() {
       </main>
     </ProtectedRoute>
   );
+}
+
+export default function CoursesPage() {
+  return <Suspense fallback={<main className="workspace-page">Yuklanmoqda…</main>}><CoursesContent /></Suspense>;
 }

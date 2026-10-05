@@ -7,6 +7,7 @@ import json
 import secrets
 import string
 import urllib.request
+import urllib.parse
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -27,11 +28,11 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.utils import get_md5_hash_password
-from .access import TeacherOnly, courses_for, scoped, is_admin, is_teacher
+from .access import TeacherOnly, AdminOnly, courses_for, scoped, is_admin, is_teacher
 from .models import User, Course, Assignment, Submission, Book, CalendarEvent, AttendanceSession, AttendanceRecord, Notification
-from .serializers import (LoginSerializer, UserProfileSerializer, ChangePasswordSerializer, AccountRecoverySerializer, CourseSerializer, AssignmentSerializer,
+from .serializers import (LoginSerializer, UserProfileSerializer, AdminUserSerializer, ChangePasswordSerializer, AccountRecoverySerializer, CourseSerializer, AssignmentSerializer,
     SubmissionSerializer, GradeSerializer, BookSerializer, CalendarEventSerializer, AttendanceSessionSerializer, AttendanceRecordSerializer, NotificationSerializer,
-    CourseStudentSerializer, EmptySerializer, AttendanceCheckInSerializer)
+    CourseStudentSerializer, EmptySerializer, AttendanceCheckInSerializer, AttendanceManualMarkSerializer, AttendancePresenceSerializer, TelegramLinkSerializer)
 
 
 
@@ -118,6 +119,57 @@ def attendance_times(session):
     return late_at, ends_at
 
 
+def lesson_ends_at(session):
+    if session.calendar_event_id:
+        return session.calendar_event.end_time
+    return session.starts_at + timedelta(minutes=70)
+
+
+def event_group_codes(event):
+    raw = (getattr(event, 'for_group', '') or '').strip()
+    if not raw or raw.lower() == 'all':
+        return []
+    return [part.strip().upper() for part in raw.split(',') if part.strip()]
+
+
+def event_students(event):
+    queryset = event.course.students.filter(is_active=True)
+    groups = event_group_codes(event)
+    if groups and queryset.exclude(group_code='').exists():
+        queryset = queryset.filter(group_code__in=groups)
+    return queryset
+
+
+def attendance_students(session):
+    if session.calendar_event_id:
+        return event_students(session.calendar_event)
+    return session.course.students.filter(is_active=True)
+
+
+def sync_attendance_session(session, now=None):
+    now = now or timezone.now()
+    _, check_in_ends_at = attendance_times(session)
+    if session.automated_checkin and now >= check_in_ends_at:
+        existing_ids = set(session.records.values_list('student_id', flat=True))
+        missing = attendance_students(session).exclude(pk__in=existing_ids)
+        AttendanceRecord.objects.bulk_create([
+            AttendanceRecord(
+                session=session,
+                student=student,
+                status='absent',
+                source='system',
+                checked_at=check_in_ends_at,
+                note='Davomat oynasi tugaganda avtomatik belgilandi.',
+            )
+            for student in missing
+        ], ignore_conflicts=True)
+    ends_at = lesson_ends_at(session)
+    if now >= ends_at and session.ended_at is None:
+        session.ended_at = ends_at
+        session.save(update_fields=['ended_at'])
+    return check_in_ends_at, ends_at
+
+
 def set_refresh_cookie(response, token):
     response.set_cookie(
         REFRESH_COOKIE,
@@ -189,6 +241,34 @@ class LoginAPIView(generics.GenericAPIView):
         return auth_response(user)
 
 
+def validate_telegram_init_data(init_data):
+    token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    if not token:
+        raise ValidationError('Telegram bot hali sozlanmagan.')
+    pairs = dict(urllib.parse.parse_qsl(init_data, keep_blank_values=True))
+    supplied_hash = pairs.pop('hash', '')
+    if not supplied_hash:
+        raise ValidationError('Telegram imzosi topilmadi.')
+    try:
+        auth_date = int(pairs.get('auth_date', '0'))
+    except ValueError:
+        raise ValidationError('Telegram auth_date noto‘g‘ri.')
+    now = int(time.time())
+    if auth_date <= 0 or auth_date > now + 60 or now - auth_date > 600:
+        raise ValidationError('Telegram sessiyasi eskirgan. Mini Appni qayta oching.')
+    check_string = '\n'.join(f'{key}={pairs[key]}' for key in sorted(pairs))
+    secret = hmac.new(b'WebAppData', token.encode(), hashlib.sha256).digest()
+    calculated = hmac.new(secret, check_string.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(calculated, supplied_hash):
+        raise ValidationError('Telegram imzosi noto‘g‘ri.')
+    try:
+        user_data = json.loads(pairs.get('user', '{}'))
+        telegram_id = str(int(user_data['id']))
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+        raise ValidationError('Telegram foydalanuvchi ma’lumoti topilmadi.')
+    return telegram_id
+
+
 def normalize_phone(value):
     digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
     if digits.startswith('998') and len(digits) == 12:
@@ -230,6 +310,21 @@ def send_telegram_message(chat_id, text):
             return bool(body.get('ok'))
     except Exception:
         return False
+
+
+class TelegramLinkAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = TelegramLinkSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        telegram_id = validate_telegram_init_data(serializer.validated_data['init_data'])
+        if User.objects.filter(telegram_chat_id=telegram_id).exclude(pk=request.user.pk).exists():
+            raise ValidationError('Bu Telegram hisobi boshqa LMS hisobiga bog‘langan.')
+        request.user.telegram_chat_id = telegram_id
+        request.user.save(update_fields=['telegram_chat_id'])
+        return Response({'telegram_connected': True})
 
 
 class AccountRecoveryAPIView(generics.GenericAPIView):
@@ -345,6 +440,54 @@ class ChangePasswordAPIView(generics.GenericAPIView):
         return auth_response(user)
 
 
+class AdminUserListCreateAPIView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, AdminOnly]
+    serializer_class = AdminUserSerializer
+
+    def get_queryset(self):
+        queryset = User.objects.filter(role__in=['student', 'ustoz']).order_by('role', 'fullname')
+        role = self.request.query_params.get('role')
+        if role in {'student', 'ustoz'}:
+            queryset = queryset.filter(role=role)
+        if self.request.query_params.get('active') == '1':
+            queryset = queryset.filter(is_active=True)
+        return queryset
+
+
+class AdminUserDetailAPIView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticated, AdminOnly]
+    serializer_class = AdminUserSerializer
+
+    def get_queryset(self):
+        return User.objects.filter(role__in=['student', 'ustoz'])
+
+
+class AdminStatsAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated, AdminOnly]
+    serializer_class = EmptySerializer
+
+    def get(self, request):
+        now = timezone.now()
+        today = timezone.localdate(now)
+        return Response({
+            'users_total': User.objects.filter(role__in=['student', 'ustoz']).count(),
+            'students_active': User.objects.filter(role='student', is_active=True).count(),
+            'teachers_active': User.objects.filter(role='ustoz', is_active=True).count(),
+            'users_inactive': User.objects.filter(role__in=['student', 'ustoz'], is_active=False).count(),
+            'courses_active': Course.objects.filter(is_archived=False).count(),
+            'courses_archived': Course.objects.filter(is_archived=True).count(),
+            'assignments_total': Assignment.objects.count(),
+            'submissions_pending': Submission.objects.filter(grade=None).count(),
+            'lessons_today': CalendarEvent.objects.filter(
+                event_type='lesson',
+                start_time__date=today,
+            ).count(),
+            'attendance_sessions_today': AttendanceSession.objects.filter(
+                starts_at__date=today,
+            ).count(),
+        })
+
+
 class CourseListAPIView(generics.ListCreateAPIView):
     serializer_class = CourseSerializer
 
@@ -355,7 +498,7 @@ class CourseListAPIView(generics.ListCreateAPIView):
         return courses_for(self.request.user).select_related('teacher').prefetch_related('students')
 
     def perform_create(self, serializer):
-        serializer.save(teacher=self.request.user)
+        serializer.save()
 
 
 class CourseDetailAPIView(generics.RetrieveUpdateAPIView):
@@ -378,19 +521,19 @@ class CourseStudentsAPIView(generics.GenericAPIView):
 
     def get(self, request, pk):
         course = self.get_course(request, pk)
-        return Response(list(course.students.order_by('fullname').values('id', 'username', 'fullname', 'is_active')))
+        return Response(list(course.students.order_by('fullname').values('id', 'username', 'fullname', 'student_id', 'group_code', 'phone_number', 'is_active')))
 
     def post(self, request, pk):
         course = self.get_course(request, pk)
         if course.is_archived:
-            raise ValidationError('Arxivlangan kursga talaba qo‘shilmaydi.')
+            raise ValidationError('Arxivlangan darsga talaba qo‘shilmaydi.')
         student = get_object_or_404(User, username=request.data.get('username'), role='student', is_active=True)
         course.students.add(student)
         notify_user(
             student,
             'course',
-            'Kursga qo‘shildingiz',
-            f'{course.code} — {course.title} kursi sizga biriktirildi.',
+            'Darsga qo‘shildingiz',
+            f'{course.code} — {course.title} darsi sizga biriktirildi.',
             '/my-courses',
         )
         return Response({'id': student.pk, 'fullname': student.fullname}, status=201)
@@ -429,7 +572,7 @@ class CourseResourceMixin:
             try:
                 course_id = int(self.request.query_params['course'])
             except (ValueError, TypeError):
-                raise ValidationError({'course': 'Kurs ID raqam bo‘lishi kerak.'})
+                raise ValidationError({'course': 'Dars ID raqam bo‘lishi kerak.'})
             qs = qs.filter(course_id=course_id)
         return qs.order_by('-id')
 
@@ -486,7 +629,7 @@ class AssignmentDetailAPIView(CourseResourceMixin, generics.RetrieveUpdateDestro
 
     def perform_destroy(self, instance):
         if instance.submissions.exists():
-            raise ValidationError('Javoblari mavjud topshiriq o‘chirilmaydi. Kursni arxivlang.')
+            raise ValidationError('Javoblari mavjud topshiriq o‘chirilmaydi. Darsni arxivlang.')
         instance.delete()
 
 
@@ -537,7 +680,7 @@ class SubmissionAPIView(generics.GenericAPIView):
         if not assignment.course or not assignment.course.students.filter(pk=request.user.pk).exists():
             raise Http404()
         if assignment.course.is_archived:
-            raise ValidationError('Bu kurs arxivlangan.')
+            raise ValidationError('Bu dars arxivlangan.')
         if not assignment.allow_late and timezone.now() > assignment.deadline:
             raise ValidationError('Topshirish muddati tugagan.')
         last_attempt = assignment.submissions.filter(student=request.user).aggregate(value=Max('attempt'))['value'] or 0
@@ -583,7 +726,7 @@ class TeacherSubmissionsAPIView(generics.ListAPIView):
             try:
                 course_id = int(self.request.query_params['course'])
             except (ValueError, TypeError):
-                raise ValidationError({'course': 'Kurs ID raqam bo‘lishi kerak.'})
+                raise ValidationError({'course': 'Dars ID raqam bo‘lishi kerak.'})
             qs = qs.filter(assignment__course_id=course_id)
         if self.request.query_params.get('pending') == '1':
             qs = qs.filter(grade=None)
@@ -598,7 +741,7 @@ class GradeSetAPIView(generics.GenericAPIView):
         submission = get_object_or_404(submissions_for(request.user), pk=submission_id)
         serializer = GradeSerializer(submission, data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(graded_at=timezone.now())
         notify_user(
             submission.student,
             'grade',
@@ -609,12 +752,98 @@ class GradeSetAPIView(generics.GenericAPIView):
         return Response(SubmissionSerializer(submission, context={'request': request}).data)
 
 
+class LessonAttendanceAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated, TeacherOnly]
+    serializer_class = AttendanceSessionSerializer
+
+    def get_event(self, request, event_id):
+        return get_object_or_404(
+            CalendarEvent.objects.select_related('course').filter(
+                course__in=courses_for(request.user),
+                event_type='lesson',
+            ),
+            pk=event_id,
+        )
+
+    def get(self, request, event_id):
+        event = self.get_event(request, event_id)
+        session = AttendanceSession.objects.filter(calendar_event=event).select_related('course', 'calendar_event').first()
+        if not session:
+            return Response({
+                'event': CalendarEventSerializer(event, context={'request': request}).data,
+                'session': None,
+            })
+        sync_attendance_session(session)
+        session.refresh_from_db()
+        return Response({
+            'event': CalendarEventSerializer(event, context={'request': request}).data,
+            'session': AttendanceSessionSerializer(session, context={'request': request}).data,
+        })
+
+    @transaction.atomic
+    def post(self, request, event_id):
+        event = self.get_event(request, event_id)
+        now = timezone.now()
+        if now < event.start_time - timedelta(minutes=10):
+            raise ValidationError('Darsni boshlashga hali 10 daqiqadan ko‘p vaqt bor.')
+        if now >= event.end_time:
+            raise ValidationError('Bu dars vaqti tugagan.')
+        try:
+            latitude = float(request.data.get('latitude'))
+            longitude = float(request.data.get('longitude'))
+        except (TypeError, ValueError):
+            raise ValidationError({'location': 'Darsni boshlash uchun auditoriya lokatsiyasini yoqing.'})
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            raise ValidationError({'location': 'Lokatsiya koordinatasi noto‘g‘ri.'})
+
+        count = event_students(event).count()
+        window = min(10, 3 + max(0, (count - 1) // 30))
+        late_after = max(1, min(window - 1, round(window * 0.6)))
+        starts_at = now if now >= event.start_time else event.start_time
+        session, created = AttendanceSession.objects.get_or_create(
+            calendar_event=event,
+            defaults={
+                'course': event.course,
+                'starts_at': starts_at,
+                'topic': event.title,
+                'automated_checkin': True,
+                'attendance_minutes': window,
+                'late_after_minutes': late_after,
+                'location_latitude': latitude,
+                'location_longitude': longitude,
+                'location_radius_m': 80,
+                'max_location_accuracy_m': 100,
+            },
+        )
+        if not created:
+            sync_attendance_session(session, now)
+            update_fields = []
+            if session.location_latitude is None:
+                session.location_latitude = latitude
+                update_fields.append('location_latitude')
+            if session.location_longitude is None:
+                session.location_longitude = longitude
+                update_fields.append('location_longitude')
+            if update_fields:
+                session.save(update_fields=update_fields)
+        return Response({
+            'event': CalendarEventSerializer(event, context={'request': request}).data,
+            'session': AttendanceSessionSerializer(session, context={'request': request}).data,
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
 class AttendanceListAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, TeacherOnly]
     serializer_class = AttendanceSessionSerializer
 
     def get_queryset(self):
-        return AttendanceSession.objects.filter(course__in=courses_for(self.request.user)).select_related('course')
+        qs = AttendanceSession.objects.filter(
+            course__in=courses_for(self.request.user)
+        ).select_related('course', 'calendar_event')
+        now = timezone.now()
+        for session in qs.filter(ended_at__isnull=True):
+            sync_attendance_session(session, now)
+        return qs
 
 
 class AttendanceDetailAPIView(generics.GenericAPIView):
@@ -622,16 +851,27 @@ class AttendanceDetailAPIView(generics.GenericAPIView):
     serializer_class = AttendanceRecordSerializer
 
     def get_session(self, request, pk):
-        return get_object_or_404(AttendanceSession.objects.filter(course__in=courses_for(request.user)), pk=pk)
+        return get_object_or_404(
+            AttendanceSession.objects.filter(
+                course__in=courses_for(request.user)
+            ).select_related('course', 'calendar_event'),
+            pk=pk,
+        )
 
     def get(self, request, pk):
         session = self.get_session(request, pk)
-        return Response(AttendanceRecordSerializer(session.records.select_related('student', 'session__course'), many=True).data)
+        sync_attendance_session(session)
+        return Response(
+            AttendanceRecordSerializer(
+                session.records.select_related('student', 'session__course', 'session__calendar_event'),
+                many=True,
+            ).data
+        )
 
     @transaction.atomic
     def put(self, request, pk):
         session = self.get_session(request, pk)
-        # Lock one session so two teacher saves cannot interleave.
+        sync_attendance_session(session)
         AttendanceSession.objects.select_for_update().get(pk=session.pk)
         items = request.data.get('records')
         if not isinstance(items, list):
@@ -639,8 +879,8 @@ class AttendanceDetailAPIView(generics.GenericAPIView):
         serializer = AttendanceRecordSerializer(data=items, many=True)
         serializer.is_valid(raise_exception=True)
         ids = [item['student'].pk for item in serializer.validated_data]
-        if len(ids) != len(set(ids)) or session.course.students.filter(pk__in=ids).count() != len(ids):
-            raise ValidationError('Faqat kurs talabalarini bir martadan kiriting.')
+        if len(ids) != len(set(ids)) or attendance_students(session).filter(pk__in=ids).count() != len(ids):
+            raise ValidationError('Faqat dars talabalarini bir martadan kiriting.')
         session.records.exclude(student_id__in=ids).delete()
         for item in serializer.validated_data:
             student = item.pop('student')
@@ -651,11 +891,31 @@ class AttendanceDetailAPIView(generics.GenericAPIView):
                     **item,
                     'source': 'manual',
                     'checked_at': timezone.now(),
+                    'last_seen_at': timezone.now() if item['status'] in {'present', 'late'} else None,
+                    'presence_samples': 1 if item['status'] in {'present', 'late'} else 0,
                     'distance_m': None,
                     'location_accuracy_m': None,
                 },
             )
         return self.get(request, pk)
+
+
+class AttendanceRosterAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated, TeacherOnly]
+    serializer_class = CourseStudentSerializer
+
+    def get(self, request, pk):
+        session = get_object_or_404(
+            AttendanceSession.objects.select_related('course', 'calendar_event').filter(
+                course__in=courses_for(request.user)
+            ),
+            pk=pk,
+        )
+        students = attendance_students(session).order_by('fullname')
+        return Response(list(students.values(
+            'id', 'username', 'fullname', 'student_id', 'group_code',
+            'phone_number', 'is_active',
+        )))
 
 
 class AttendanceChallengeAPIView(generics.GenericAPIView):
@@ -664,7 +924,7 @@ class AttendanceChallengeAPIView(generics.GenericAPIView):
 
     def get_session(self, request, pk):
         return get_object_or_404(
-            AttendanceSession.objects.select_related('course').filter(
+            AttendanceSession.objects.select_related('course', 'calendar_event').filter(
                 course__in=courses_for(request.user)
             ),
             pk=pk,
@@ -674,10 +934,12 @@ class AttendanceChallengeAPIView(generics.GenericAPIView):
         session = self.get_session(request, pk)
         if not session.automated_checkin:
             raise ValidationError('Bu mashg‘ulotda avtomatik davomat yoqilmagan.')
-        if session.ended_at:
-            raise ValidationError('Davomat yakunlangan.')
-        late_at, ends_at = attendance_times(session)
         now = timezone.now()
+        check_in_ends_at, session_ends_at = sync_attendance_session(session, now)
+        session.refresh_from_db()
+        if session.ended_at:
+            raise ValidationError('Dars vaqti tugagan.')
+        late_at, _ = attendance_times(session)
         return Response({
             'session': session.pk,
             'course': session.course_id,
@@ -689,9 +951,10 @@ class AttendanceChallengeAPIView(generics.GenericAPIView):
             'refresh_seconds': ATTENDANCE_BUCKET_SECONDS,
             'starts_at': session.starts_at,
             'late_after_at': late_at,
-            'check_in_ends_at': ends_at,
+            'check_in_ends_at': check_in_ends_at,
+            'lesson_ends_at': session_ends_at,
             'server_time': now,
-            'is_open': session.starts_at - timedelta(seconds=30) <= now <= ends_at,
+            'is_open': session.starts_at - timedelta(seconds=30) <= now <= check_in_ends_at,
         })
 
 
@@ -709,12 +972,16 @@ class StudentActiveAttendanceAPIView(generics.GenericAPIView):
             automated_checkin=True,
             ended_at__isnull=True,
             starts_at__lte=now + timedelta(seconds=30),
-        ).select_related('course').order_by('-starts_at')[:20]
+        ).select_related('course', 'calendar_event').order_by('-starts_at')[:20]
         result = []
         for session in sessions:
-            late_at, ends_at = attendance_times(session)
-            if now > ends_at:
+            if not attendance_students(session).filter(pk=request.user.pk).exists():
                 continue
+            check_in_ends_at, session_ends_at = sync_attendance_session(session, now)
+            session.refresh_from_db()
+            if session.ended_at or now > check_in_ends_at:
+                continue
+            late_at, _ = attendance_times(session)
             result.append({
                 'id': session.pk,
                 'course': session.course_id,
@@ -723,11 +990,49 @@ class StudentActiveAttendanceAPIView(generics.GenericAPIView):
                 'topic': session.topic,
                 'starts_at': session.starts_at,
                 'late_after_at': late_at,
-                'check_in_ends_at': ends_at,
+                'check_in_ends_at': check_in_ends_at,
+                'lesson_ends_at': session_ends_at,
                 'attendance_minutes': session.attendance_minutes,
                 'already_checked_in': session.records.filter(student=request.user).exists(),
             })
         return Response(result)
+
+
+class AttendanceManualMarkAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated, TeacherOnly]
+    serializer_class = AttendanceManualMarkSerializer
+
+    @transaction.atomic
+    def post(self, request, pk):
+        session = get_object_or_404(
+            AttendanceSession.objects.select_for_update().select_related('course', 'calendar_event').filter(
+                course__in=courses_for(request.user)
+            ),
+            pk=pk,
+        )
+        sync_attendance_session(session)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        student = get_object_or_404(
+            attendance_students(session),
+            pk=data['student'],
+        )
+        record, _ = AttendanceRecord.objects.update_or_create(
+            session=session,
+            student=student,
+            defaults={
+                'status': data['status'],
+                'note': data.get('note', ''),
+                'source': 'manual',
+                'checked_at': timezone.now(),
+                'last_seen_at': timezone.now() if data['status'] in {'present', 'late'} else None,
+                'presence_samples': 1 if data['status'] in {'present', 'late'} else 0,
+                'distance_m': None,
+                'location_accuracy_m': None,
+            },
+        )
+        return Response(AttendanceRecordSerializer(record).data)
 
 
 class AttendanceCheckInAPIView(generics.GenericAPIView):
@@ -744,21 +1049,25 @@ class AttendanceCheckInAPIView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         session = get_object_or_404(
-            AttendanceSession.objects.select_for_update().select_related('course'),
+            AttendanceSession.objects.select_for_update().select_related('course', 'calendar_event'),
             pk=data['session'],
             course__students=request.user,
             course__is_archived=False,
         )
+        if not attendance_students(session).filter(pk=request.user.pk).exists():
+            raise PermissionDenied('Siz bu dars guruhiga kirmaysiz.')
         if not session.automated_checkin:
             raise ValidationError('Bu mashg‘ulotda avtomatik davomat yoqilmagan.')
-        if session.ended_at:
-            raise ValidationError('Davomat yakunlangan.')
 
         now = timezone.now()
-        late_at, ends_at = attendance_times(session)
+        check_in_ends_at, _ = sync_attendance_session(session, now)
+        session.refresh_from_db()
+        if session.ended_at:
+            raise ValidationError('Dars vaqti tugagan.')
+        late_at, _ = attendance_times(session)
         if now < session.starts_at - timedelta(seconds=30):
             raise ValidationError('Davomat hali boshlanmagan.')
-        if now > ends_at:
+        if now > check_in_ends_at:
             raise ValidationError('Davomat vaqti tugagan.')
 
         if data['channel'] == 'qr':
@@ -781,6 +1090,7 @@ class AttendanceCheckInAPIView(generics.GenericAPIView):
             return Response(payload)
 
         check_status = 'late' if now > late_at else 'present'
+        next_samples = (existing.presence_samples if existing else 0) + 1
         record, created = AttendanceRecord.objects.update_or_create(
             session=session,
             student=request.user,
@@ -788,7 +1098,10 @@ class AttendanceCheckInAPIView(generics.GenericAPIView):
                 'status': check_status,
                 'note': '',
                 'source': data['channel'],
-                'checked_at': now,
+                'checked_at': existing.checked_at if existing and existing.checked_at else now,
+                'last_seen_at': now,
+                'presence_samples': next_samples,
+                'presence_alerted_at': None,
                 'distance_m': max(0, round(distance)),
                 'location_accuracy_m': max(0, round(data['accuracy'])),
             },
@@ -799,39 +1112,60 @@ class AttendanceCheckInAPIView(generics.GenericAPIView):
         return Response(payload, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
-class AttendanceFinalizeAPIView(generics.GenericAPIView):
-    permission_classes = [IsAuthenticated, TeacherOnly]
-    serializer_class = EmptySerializer
+class AttendancePresenceAPIView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AttendancePresenceSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'attendance'
 
     @transaction.atomic
-    def post(self, request, pk):
+    def post(self, request):
+        if request.user.role != 'student':
+            raise PermissionDenied('Presence tasdiqlash faqat talabalar uchun.')
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
         session = get_object_or_404(
-            AttendanceSession.objects.select_for_update().select_related('course').filter(
-                course__in=courses_for(request.user)
-            ),
-            pk=pk,
+            AttendanceSession.objects.select_for_update().select_related('course', 'calendar_event'),
+            pk=data['session'],
+            course__students=request.user,
+            course__is_archived=False,
         )
+        if not attendance_students(session).filter(pk=request.user.pk).exists():
+            raise PermissionDenied('Siz bu dars guruhiga kirmaysiz.')
+
         now = timezone.now()
-        existing_ids = set(session.records.values_list('student_id', flat=True))
-        missing = session.course.students.filter(is_active=True).exclude(pk__in=existing_ids)
-        AttendanceRecord.objects.bulk_create([
-            AttendanceRecord(
-                session=session,
-                student=student,
-                status='absent',
-                source='system',
-                checked_at=now,
-                note='Davomat oynasi yakunlanganda avtomatik belgilandi.',
-            )
-            for student in missing
+        sync_attendance_session(session, now)
+        session.refresh_from_db()
+        if session.ended_at or now > lesson_ends_at(session):
+            raise ValidationError('Dars vaqti tugagan.')
+        if now < session.starts_at - timedelta(seconds=30):
+            raise ValidationError('Dars hali boshlanmagan.')
+
+        validate_ultrasound_code(session.pk, data['proof'])
+        distance = validate_attendance_location(
+            session,
+            data['latitude'],
+            data['longitude'],
+            data['accuracy'],
+        )
+        record = get_object_or_404(
+            session.records.select_for_update(),
+            student=request.user,
+            status__in=['present', 'late'],
+        )
+        record.last_seen_at = now
+        record.presence_samples += 1
+        record.presence_alerted_at = None
+        record.distance_m = max(0, round(distance))
+        record.location_accuracy_m = max(0, round(data['accuracy']))
+        record.save(update_fields=[
+            'last_seen_at', 'presence_samples', 'presence_alerted_at',
+            'distance_m', 'location_accuracy_m',
         ])
-        session.ended_at = now
-        session.save(update_fields=['ended_at'])
-        records = session.records.select_related('student', 'session__course').order_by('student__fullname')
-        return Response({
-            'ended_at': session.ended_at,
-            'records': AttendanceRecordSerializer(records, many=True).data,
-        })
+        payload = AttendanceRecordSerializer(record).data
+        payload['presence_confirmed'] = True
+        return Response(payload)
 
 
 class MyAttendanceAPIView(generics.ListAPIView):
@@ -839,7 +1173,7 @@ class MyAttendanceAPIView(generics.ListAPIView):
     serializer_class = AttendanceRecordSerializer
 
     def get_queryset(self):
-        return AttendanceRecord.objects.filter(student=self.request.user, session__course__students=self.request.user).select_related('student', 'session__course').order_by('-session__starts_at')
+        return AttendanceRecord.objects.filter(student=self.request.user, session__course__students=self.request.user).select_related('student', 'session__course', 'session__calendar_event').order_by('-session__starts_at')
 
 
 class NotificationListAPIView(generics.ListAPIView):

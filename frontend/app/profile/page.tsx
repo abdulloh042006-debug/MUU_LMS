@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { ShieldCheck, UserRound } from "lucide-react";
+import Link from "next/link";
+import {
+  Bell,
+  ChartNoAxesCombined,
+  ChevronRight,
+  ShieldCheck,
+  UserCheck,
+  UserRound,
+} from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { changePassword, updateUserProfile } from "@/lib/api-service";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -108,6 +116,35 @@ export default function Profile() {
           </Alert>
         )}
 
+        {user?.role === "student" && (
+          <nav className="profile-quick-links" aria-label="Talaba bo‘limlari">
+            <Link href="/grades">
+              <ChartNoAxesCombined size={19} />
+              <span>
+                <strong>Baholar</strong>
+                <small>Natija va ustoz izohlari</small>
+              </span>
+              <ChevronRight size={18} />
+            </Link>
+            <Link href="/attendance">
+              <UserCheck size={19} />
+              <span>
+                <strong>Davomat</strong>
+                <small>Qatnashuv va kechikishlar</small>
+              </span>
+              <ChevronRight size={18} />
+            </Link>
+            <Link href="/notifications">
+              <Bell size={19} />
+              <span>
+                <strong>Bildirishnomalar</strong>
+                <small>Muhim yangilanishlar</small>
+              </span>
+              <ChevronRight size={18} />
+            </Link>
+          </nav>
+        )}
+
         <div className="management-grid">
           <Card>
             <CardHeader>
@@ -120,7 +157,7 @@ export default function Profile() {
               <div className="mb-5 rounded-lg bg-muted/60 p-4 text-sm">
                 <strong>@{user?.username}</strong>
                 <span className="ml-2 text-muted-foreground">
-                  · {user?.role === "student" ? "Talaba" : "Ustoz"}
+                  · {user?.role === "admin" ? "Administrator" : user?.role === "student" ? "Talaba" : "Ustoz"}
                 </span>
               </div>
 

@@ -21,6 +21,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     fullname = models.CharField(max_length=50, null=False)
     username = models.CharField(max_length=50, unique=True, null=False)
     student_id = models.CharField(max_length=40, unique=True, null=True, blank=True)
+    group_code = models.CharField(max_length=40, blank=True, db_index=True)
     phone_number = models.CharField(max_length=32, blank=True, db_index=True)
     telegram_chat_id = models.CharField(max_length=64, unique=True, null=True, blank=True)
     must_change_password = models.BooleanField(default=False)
@@ -83,6 +84,7 @@ class Submission(models.Model):
     file = models.FileField(upload_to='submissions/')
     submitted_at = models.DateTimeField(auto_now_add=True)
     grade = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    graded_at = models.DateTimeField(null=True, blank=True)
     feedback = models.TextField(blank=True, null=True)
     attempt = models.PositiveSmallIntegerField(default=1)
 
@@ -117,6 +119,8 @@ class CalendarEvent(models.Model):
     event_type = models.CharField(max_length=32, choices=EVENT_TYPE_CHOICES, default='lesson')
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
+    room = models.CharField(max_length=50, blank=True)
+    period = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(10)])
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='events')
     created_at = models.DateTimeField(auto_now_add=True)
     # optional: specific group or user
@@ -126,6 +130,7 @@ class CalendarEvent(models.Model):
         return f"{self.title} ({self.get_event_type_display()})"
 
 class AttendanceSession(models.Model):
+    calendar_event = models.OneToOneField(CalendarEvent, null=True, blank=True, on_delete=models.PROTECT, related_name='attendance_session')
     course = models.ForeignKey(Course, on_delete=models.PROTECT, related_name='attendance_sessions')
     starts_at = models.DateTimeField()
     topic = models.CharField(max_length=200)
@@ -152,6 +157,9 @@ class AttendanceRecord(models.Model):
     note = models.CharField(max_length=250, blank=True)
     source = models.CharField(max_length=12, choices=SOURCE_CHOICES, default='manual')
     checked_at = models.DateTimeField(null=True, blank=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    presence_samples = models.PositiveIntegerField(default=0)
+    presence_alerted_at = models.DateTimeField(null=True, blank=True)
     distance_m = models.PositiveIntegerField(null=True, blank=True)
     location_accuracy_m = models.PositiveIntegerField(null=True, blank=True)
 

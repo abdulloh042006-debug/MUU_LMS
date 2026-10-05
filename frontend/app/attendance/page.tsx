@@ -21,6 +21,14 @@ export default function Attendance() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const attended = rows.filter(
+    (row) => row.status === "present" || row.status === "late",
+  ).length;
+  const attendanceRate = rows.length
+    ? Math.round((attended / rows.length) * 100)
+    : null;
+
   return (
     <ProtectedRoute>
       <main className="workspace-page">
@@ -43,7 +51,20 @@ export default function Attendance() {
           <p>Yuklanmoqda…</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="attendance-summary-grid">
+              <Card className="attendance-rate-card">
+                <CardContent className="p-5">
+                  <p className="text-sm text-muted-foreground">Umumiy davomat</p>
+                  <strong>
+                    {attendanceRate === null ? "—" : `${attendanceRate}%`}
+                  </strong>
+                  <span>
+                    {rows.length
+                      ? `${attended} / ${rows.length} ta dars`
+                      : "Hali ma’lumot yo‘q"}
+                  </span>
+                </CardContent>
+              </Card>
               {Object.entries(labels).map(([status, label]) => (
                 <Card key={status}>
                   <CardContent className="p-5">
@@ -63,7 +84,7 @@ export default function Attendance() {
                       <strong>{r.session_topic}</strong>
                       <small>
                         {r.course_title} ·{" "}
-                        {new Date(r.starts_at).toLocaleString("uz-UZ")}
+                        {new Date(r.starts_at).toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}
                       </small>
                       {r.note && <p className="text-sm">{r.note}</p>}
                     </div>

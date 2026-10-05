@@ -1,6 +1,9 @@
+.git
 node_modules
-.next
+.next*
 .env
+.env.*
+*.tsbuildinfo
 __pycache__
 *.sqlite3
 media

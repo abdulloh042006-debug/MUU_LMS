@@ -1,5 +1,5 @@
 import type React from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
 import "./globals.css";
 import { PortalShell } from "@/components/portal-shell";
@@ -11,6 +11,12 @@ export const metadata: Metadata = {
   description:
     "Millat Umidi universiteti uchun ishlab chiqilgan LMS konsepti: materiallar, topshiriqlar va natijalar.",
   icons: { icon: "/favicon.svg" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

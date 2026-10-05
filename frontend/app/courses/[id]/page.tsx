@@ -62,7 +62,7 @@ export default function Material() {
                 <h1 className="text-3xl font-semibold my-4">{book.title}</h1>
                 <p className="text-sm text-muted-foreground mb-6">
                   Fayl autentifikatsiya orqali himoyalangan. Yuklash tugmasi
-                  faqat ushbu kursga kirish huquqingiz bo‘lsa ishlaydi.
+                  faqat ushbu darsga kirish huquqingiz bo‘lsa ishlaydi.
                 </p>
                 <Button onClick={download} disabled={downloading}>
                   <Download size={17} />

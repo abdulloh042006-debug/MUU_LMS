@@ -1,7 +1,10 @@
-node_modules
-.next
+.git
+.venv
 .env
+.env.*
 __pycache__
+*.pyc
 *.sqlite3
+.pytest_cache
 media
 static

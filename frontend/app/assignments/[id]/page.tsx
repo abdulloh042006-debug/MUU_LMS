@@ -71,7 +71,7 @@ export default function Assignment() {
       (item.is_overdue && !item.allow_late));
   return (
     <ProtectedRoute>
-      <main className="workspace-page">
+      <main className="workspace-page assignment-detail-page">
         <Link href="/assignments" className="text-sm">
           ← Topshiriqlar
         </Link>
@@ -91,7 +91,7 @@ export default function Assignment() {
                   <h1>{item.title}</h1>
                   <p>
                     Topshirish muddati:{" "}
-                    {new Date(item.deadline).toLocaleString("uz-UZ")}
+                    {new Date(item.deadline).toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}
                   </p>
                 </div>
                 <span
@@ -99,7 +99,7 @@ export default function Assignment() {
                 >
                   {item.is_submitted
                     ? "Javob yuborilgan"
-                    : item.is_overdue
+                    : item.is_overdue && !item.allow_late
                       ? "Muddati tugagan"
                       : "Kutilmoqda"}
                 </span>
@@ -129,7 +129,7 @@ export default function Assignment() {
                   </CardContent>
                 </Card>
                 {student ? (
-                  <Card>
+                  <Card className="assignment-submit-card">
                     <CardHeader>
                       <CardTitle>Javob yuborish</CardTitle>
                     </CardHeader>
@@ -142,7 +142,7 @@ export default function Assignment() {
                       {blocked ? (
                         <p role="status">
                           {item.course_archived
-                            ? "Kurs arxivlangan."
+                            ? "Dars arxivlangan."
                             : item.attempts_used >= item.max_attempts
                               ? "Barcha urinishlar ishlatilgan."
                               : "Topshirish muddati tugagan."}
@@ -179,7 +179,7 @@ export default function Assignment() {
                     <CardContent className="p-6">
                       <p>Javoblarni ustoz kabinetida baholang.</p>
                       <Button asChild className="mt-4">
-                        <Link href="/manage">Baholashga o‘tish</Link>
+                        <Link href={`/manage?tab=grading&course=${item.course}`}>Baholashga o‘tish</Link>
                       </Button>
                     </CardContent>
                   </Card>
@@ -200,7 +200,7 @@ export default function Assignment() {
                           {s.attempt}-urinish
                         </strong>
                         <small>
-                          {new Date(s.submitted_at).toLocaleString("uz-UZ")}
+                          {new Date(s.submitted_at).toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}
                           {s.is_late ? " · Kech topshirilgan" : ""}
                         </small>
                         <p className="text-sm mt-2">

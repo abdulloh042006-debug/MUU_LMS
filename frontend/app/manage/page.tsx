@@ -31,12 +31,20 @@ import { Download, Trash2, Plus, Users, Check } from "lucide-react";
 import { AttendanceBroadcastPanel } from "@/components/attendance-broadcast-panel";
 
 type Row = { id: number; [key: string]: any };
-const stamp = (value: FormDataEntryValue | null) =>
-  new Date(String(value)).toISOString();
-const localDate = (value: string) => {
-  const d = new Date(value);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
+const campusStamp = (value: FormDataEntryValue | null) =>
+  new Date(`${String(value)}+05:00`).toISOString();
+const campusDate = (value: string) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Tashkent",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const part = (type: string) => parts.find((item) => item.type === type)?.value;
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
 };
 const freshLocation = () =>
   new Promise<GeolocationPosition>((resolve, reject) => {
@@ -70,7 +78,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 export default function Management() {
   const { user } = useAuth();
-  const allowed = user?.role === "ustoz" || user?.role === "admin";
+  const admin = user?.role === "admin";
+  const allowed = user?.role === "ustoz" || admin;
+  const [teachers, setTeachers] = useState<Row[]>([]);
   const [courses, setCourses] = useState<Row[]>([]),
     [selected, setSelected] = useState(0);
   const [books, setBooks] = useState<Row[]>([]),
@@ -86,6 +96,14 @@ export default function Management() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const [pendingOnly, setPendingOnly] = useState(true);
+  const [calendarType, setCalendarType] = useState("lesson");
+  const [activeTab, setActiveTab] = useState("courses");
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab && ["courses", "materials", "assignments", "grading", "attendance", "calendar"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
   const [confirm, setConfirm] = useState<{
     title: string;
     action: () => Promise<any>;
@@ -106,9 +124,11 @@ export default function Management() {
     setSubmissions(s);
     setEvents(e);
     setSessions(t);
-    setSelected((old) =>
-      c.some((item: Row) => item.id === old) ? old : c[0]?.id || 0,
-    );
+    setSelected((old) => {
+      if (c.some((item: Row) => item.id === old)) return old;
+      const requested = Number(new URLSearchParams(window.location.search).get("course"));
+      return c.some((item: Row) => item.id === requested) ? requested : c[0]?.id || 0;
+    });
   }, []);
   useEffect(() => {
     if (!allowed) return;
@@ -117,6 +137,30 @@ export default function Management() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [allowed, load]);
+
+  useEffect(() => {
+    if (!admin) {
+      setTeachers([]);
+      return;
+    }
+    let active = true;
+    api
+      .getAdminUsers()
+      .then((rows) => {
+        if (active) {
+          setTeachers(
+            rows.filter(
+              (row: Row) => row.role === "ustoz" && row.is_active !== false,
+            ),
+          );
+        }
+      })
+      .catch((e) => active && setError(e.message));
+    return () => {
+      active = false;
+    };
+  }, [admin]);
+
   useEffect(() => {
     setActiveSession(0);
     setMarks({});
@@ -205,7 +249,7 @@ export default function Management() {
             <div>
               <p className="eyebrow">TA’LIM JARAYONINI BOSHQARISH</p>
               <h1>Ustoz kabineti</h1>
-              <p>Kurs, talabalar, topshiriqlar va baholash — bir joyda.</p>
+              <p>Dars, talabalar, topshiriqlar va baholash — bir joyda.</p>
             </div>
             <Button
               variant="outline"
@@ -231,14 +275,14 @@ export default function Management() {
           ) : (
             <>
               <div className="course-picker">
-                <Label htmlFor="course-scope">Ishlayotgan kursingiz</Label>
+                <Label htmlFor="course-scope">Ishlayotgan darsingiz</Label>
                 <select
                   id="course-scope"
                   value={selected}
                   onChange={(e) => setSelected(Number(e.target.value))}
                 >
                   <option value="0" disabled>
-                    Kursni tanlang
+                    Darsni tanlang
                   </option>
                   {courses.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -254,9 +298,9 @@ export default function Management() {
                   </span>
                 )}
               </div>
-              <Tabs defaultValue="courses">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="management-tabs">
-                  <TabsTrigger value="courses">Kurs va talabalar</TabsTrigger>
+                  <TabsTrigger value="courses">Dars va talabalar</TabsTrigger>
                   <TabsTrigger value="materials">Materiallar</TabsTrigger>
                   <TabsTrigger value="assignments">Topshiriqlar</TabsTrigger>
                   <TabsTrigger value="grading">Baholash</TabsTrigger>
@@ -267,7 +311,7 @@ export default function Management() {
                   <div className="management-grid">
                     <Card>
                       <CardHeader>
-                        <CardTitle>Yangi kurs</CardTitle>
+                        <CardTitle>Yangi dars</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <form
@@ -276,17 +320,17 @@ export default function Management() {
                             api.createCourse(Object.fromEntries(d)),
                           )}
                         >
-                          <Field label="Kurs nomi">
+                          <Field label="Dars nomi">
                             <Input
-                              aria-label="Kurs nomi"
+                              aria-label="Dars nomi"
                               name="title"
                               required
                               maxLength={150}
                             />
                           </Field>
-                          <Field label="Unikal kurs kodi">
+                          <Field label="Unikal dars kodi">
                             <Input
-                              aria-label="Kurs kodi"
+                              aria-label="Dars kodi"
                               name="code"
                               placeholder="IT102-PYTHON"
                               required
@@ -295,13 +339,33 @@ export default function Management() {
                           </Field>
                           <Field label="Tavsif">
                             <Textarea
-                              aria-label="Kurs tavsifi"
+                              aria-label="Dars tavsifi"
                               name="description"
                             />
                           </Field>
-                          <Button disabled={busy}>
+                          {admin && (
+                            <Field label="Mas’ul ustoz">
+                              <select
+                                aria-label="Dars ustozini tanlash"
+                                name="teacher"
+                                className="native-select"
+                                required
+                                defaultValue=""
+                              >
+                                <option value="" disabled>
+                                  Ustozni tanlang
+                                </option>
+                                {teachers.map((teacher) => (
+                                  <option key={teacher.id} value={teacher.id}>
+                                    {teacher.fullname} · @{teacher.username}
+                                  </option>
+                                ))}
+                              </select>
+                            </Field>
+                          )}
+                          <Button disabled={busy || (admin && !teachers.length)}>
                             <Plus size={16} />
-                            Kurs yaratish
+                            Dars yaratish
                           </Button>
                         </form>
                       </CardContent>
@@ -309,7 +373,7 @@ export default function Management() {
                     <Card>
                       <CardHeader>
                         <CardTitle>
-                          {course?.title || "Kurs tanlanmagan"}
+                          {course?.title || "Dars tanlanmagan"}
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-5">
@@ -317,8 +381,36 @@ export default function Management() {
                           <>
                             <p>
                               {course.description ||
-                                "Kurs tavsifi hali kiritilmagan."}
+                                "Dars tavsifi hali kiritilmagan."}
                             </p>
+                            {admin && (
+                              <div className="space-y-2">
+                                <Label htmlFor="course-teacher">
+                                  Mas’ul ustoz
+                                </Label>
+                                <select
+                                  id="course-teacher"
+                                  className="native-select"
+                                  value={course.teacher || ""}
+                                  disabled={busy || !teachers.length}
+                                  onChange={(e) =>
+                                    run(
+                                      () =>
+                                        api.updateCourse(selected, {
+                                          teacher: Number(e.target.value),
+                                        }),
+                                      "Dars ustozga biriktirildi.",
+                                    )
+                                  }
+                                >
+                                  {teachers.map((teacher) => (
+                                    <option key={teacher.id} value={teacher.id}>
+                                      {teacher.fullname} · @{teacher.username}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
                             <Button
                               variant="outline"
                               disabled={busy}
@@ -329,14 +421,14 @@ export default function Management() {
                                       is_archived: !course.is_archived,
                                     }),
                                   course.is_archived
-                                    ? "Kurs tiklandi."
-                                    : "Kurs arxivlandi. Ma’lumotlar saqlanadi.",
+                                    ? "Dars tiklandi."
+                                    : "Dars arxivlandi. Ma’lumotlar saqlanadi.",
                                 )
                               }
                             >
                               {course.is_archived
                                 ? "Arxivdan chiqarish"
-                                : "Kursni arxivlash"}
+                                : "Darsni arxivlash"}
                             </Button>
                             <form
                               className="flex flex-wrap gap-2"
@@ -359,8 +451,8 @@ export default function Management() {
                               </Button>
                             </form>
                             <p className="text-sm text-muted-foreground">
-                              Talaba avval ro‘yxatdan o‘tadi. So‘ng
-                              foydalanuvchi nomi orqali kursga qo‘shasiz.
+                              Talaba hisobini avval administrator yaratadi. So‘ng
+                              foydalanuvchi nomi orqali darsga qo‘shasiz.
                             </p>
                             <div className="space-y-2">
                               {students.map((s) => (
@@ -372,11 +464,11 @@ export default function Management() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    aria-label={`${s.fullname}ni kursdan chiqarish`}
+                                    aria-label={`${s.fullname}ni darsdan chiqarish`}
                                     disabled={busy}
                                     onClick={() =>
                                       remove(
-                                        `${s.fullname} kursdan chiqarilsinmi?`,
+                                        `${s.fullname} darsdan chiqarilsinmi?`,
                                         () =>
                                           api.removeCourseStudent(
                                             selected,
@@ -390,7 +482,7 @@ export default function Management() {
                                 </div>
                               ))}
                               {!students.length && (
-                                <p>Hozircha kursga talaba biriktirilmagan.</p>
+                                <p>Hozircha darsga talaba biriktirilmagan.</p>
                               )}
                             </div>
                           </>
@@ -441,7 +533,7 @@ export default function Management() {
                     </Card>
                     <Card>
                       <CardHeader>
-                        <CardTitle>Kurs materiallari</CardTitle>
+                        <CardTitle>Dars materiallari</CardTitle>
                       </CardHeader>
                       <CardContent>
                         {mine(books).map((b) => (
@@ -505,7 +597,7 @@ export default function Management() {
                               const data = {
                                 title: d.get("title"),
                                 description: d.get("description"),
-                                deadline: stamp(d.get("deadline")),
+                                deadline: campusStamp(d.get("deadline")),
                                 max_attempts: Number(d.get("max_attempts")),
                                 allow_late: d.get("allow_late") === "on",
                               };
@@ -516,7 +608,7 @@ export default function Management() {
                               setEditing(null);
                               return r;
                             }
-                            d.set("deadline", stamp(d.get("deadline")));
+                            d.set("deadline", campusStamp(d.get("deadline")));
                             d.set(
                               "allow_late",
                               d.get("allow_late") === "on" ? "true" : "false",
@@ -542,7 +634,7 @@ export default function Management() {
                               defaultValue={editing?.description}
                             />
                           </Field>
-                          <Field label="Topshirish muddati (qurilmangiz vaqti)">
+                          <Field label="Topshirish muddati (Toshkent vaqti)">
                             <Input
                               aria-label="Topshirish muddati"
                               name="deadline"
@@ -550,7 +642,7 @@ export default function Management() {
                               required
                               defaultValue={
                                 editing
-                                  ? localDate(editing.deadline)
+                                  ? campusDate(editing.deadline)
                                   : undefined
                               }
                             />
@@ -603,7 +695,7 @@ export default function Management() {
                     </Card>
                     <Card>
                       <CardHeader>
-                        <CardTitle>Kurs topshiriqlari</CardTitle>
+                        <CardTitle>Dars topshiriqlari</CardTitle>
                       </CardHeader>
                       <CardContent>
                         {mine(assignments).map((a) => (
@@ -611,7 +703,7 @@ export default function Management() {
                             <div>
                               <strong>{a.title}</strong>
                               <small>
-                                {new Date(a.deadline).toLocaleString("uz-UZ")} ·{" "}
+                                {new Date(a.deadline).toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })} ·{" "}
                                 {a.submission_count} javob
                               </small>
                             </div>
@@ -689,9 +781,9 @@ export default function Management() {
                                 </strong>
                                 <small>
                                   {s.attempt}-urinish ·{" "}
-                                  {new Date(s.submitted_at).toLocaleString(
-                                    "uz-UZ",
-                                  )}
+                                  {new Date(s.submitted_at).toLocaleString("uz-UZ", {
+                                    timeZone: "Asia/Tashkent",
+                                  })}
                                   {s.is_late ? " · Kech topshirilgan" : ""}
                                 </small>
                               </div>
@@ -754,8 +846,11 @@ export default function Management() {
                             return api.createAttendanceSession({
                               course: selected,
                               topic: d.get("topic"),
-                              starts_at: stamp(d.get("starts_at")),
+                              starts_at: d.get("starts_at")
+                                ? campusStamp(d.get("starts_at"))
+                                : new Date().toISOString(),
                               automated_checkin: true,
+                              attendance_minutes: Number(d.get("attendance_minutes")),
                               location_latitude: position.coords.latitude,
                               location_longitude: position.coords.longitude,
                               location_radius_m: 80,
@@ -770,17 +865,19 @@ export default function Management() {
                               required
                             />
                           </Field>
-                          <Field label="Boshlanish (qurilmangiz vaqti)">
+                          <Field label="Boshlanish (Toshkent vaqti)">
                             <Input
                               aria-label="Mashg‘ulot boshlanishi"
                               name="starts_at"
                               type="datetime-local"
-                              defaultValue={localDate(new Date().toISOString())}
-                              required
                             />
+                            <span className="text-xs text-muted-foreground">Bo‘sh qoldirsangiz, tugma bosilgan vaqtda boshlanadi.</span>
+                          </Field>
+                          <Field label="Davomat oynasi (daqiqa)">
+                            <Input aria-label="Davomat oynasi" name="attendance_minutes" type="number" min={2} max={15} defaultValue={10} required />
                           </Field>
                           <p className="text-sm text-muted-foreground">
-                            Boshlashda auditoriya lokatsiyasi olinadi. Davomat oynasi kursdagi talabalar soniga qarab avtomatik belgilanadi.
+                            Boshlashda auditoriya lokatsiyasi olinadi. Davomat oynasini 2–15 daqiqa oralig‘ida tanlang.
                           </p>
                           <Button disabled={busy || !canCreate}>
                             Davomatni boshlash
@@ -802,7 +899,7 @@ export default function Management() {
                             {mine(sessions).map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.topic} ·{" "}
-                                {new Date(s.starts_at).toLocaleString("uz-UZ")}
+                                {new Date(s.starts_at).toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}
                               </option>
                             ))}
                           </select>
@@ -923,8 +1020,11 @@ export default function Management() {
                               title: d.get("title"),
                               description: d.get("description"),
                               event_type: d.get("event_type"),
-                              start_time: stamp(d.get("start_time")),
-                              end_time: stamp(d.get("end_time")),
+                              period: calendarType === "lesson" ? Number(d.get("period")) : null,
+                              room: d.get("room"),
+                              for_group: d.get("for_group"),
+                              start_time: campusStamp(d.get("start_time")),
+                              end_time: campusStamp(d.get("end_time")),
                             }),
                           )}
                         >
@@ -940,13 +1040,37 @@ export default function Management() {
                               aria-label="Tadbir turi"
                               name="event_type"
                               className="native-select"
+                              value={calendarType}
+                              onChange={(event) => setCalendarType(event.target.value)}
                             >
                               <option value="lesson">Dars</option>
                               <option value="exam">Imtihon</option>
                               <option value="other">Boshqa</option>
                             </select>
                           </Field>
-                          <Field label="Boshlanish">
+                          {calendarType === "lesson" && (
+                            <Field label="Dars parasi">
+                              <select
+                                aria-label="Dars parasi"
+                                name="period"
+                                className="native-select"
+                                defaultValue=""
+                                required
+                              >
+                                <option value="" disabled>Parani tanlang</option>
+                                {[1, 2, 3, 4, 5, 6].map((period) => (
+                                  <option key={period} value={period}>{period}-para</option>
+                                ))}
+                              </select>
+                            </Field>
+                          )}
+                          <Field label="Xona (ixtiyoriy)">
+                            <Input aria-label="Tadbir xonasi" name="room" maxLength={50} />
+                          </Field>
+                          <Field label="Guruh (ixtiyoriy)">
+                            <Input aria-label="Tadbir guruhi" name="for_group" maxLength={100} />
+                          </Field>
+                          <Field label="Boshlanish (Toshkent vaqti)">
                             <Input
                               aria-label="Tadbir boshlanishi"
                               name="start_time"
@@ -954,7 +1078,7 @@ export default function Management() {
                               required
                             />
                           </Field>
-                          <Field label="Tugash">
+                          <Field label="Tugash (Toshkent vaqti)">
                             <Input
                               aria-label="Tadbir tugashi"
                               name="end_time"
@@ -976,7 +1100,7 @@ export default function Management() {
                     </Card>
                     <Card>
                       <CardHeader>
-                        <CardTitle>Kurs taqvimi</CardTitle>
+                        <CardTitle>Dars taqvimi</CardTitle>
                       </CardHeader>
                       <CardContent>
                         {mine(events).map((e) => (
@@ -984,7 +1108,7 @@ export default function Management() {
                             <div>
                               <strong>{e.title}</strong>
                               <small>
-                                {new Date(e.start_time).toLocaleString("uz-UZ")}
+                                {new Date(e.start_time).toLocaleString("uz-UZ", { timeZone: "Asia/Tashkent" })}
                               </small>
                             </div>
                             <Button
@@ -1020,7 +1144,7 @@ export default function Management() {
               <AlertDialogHeader>
                 <AlertDialogTitle>{confirm?.title}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Ushbu o‘zgarish kurs ma’lumotlariga ta’sir qiladi. Davom
+                  Ushbu o‘zgarish dars ma’lumotlariga ta’sir qiladi. Davom
                   etishni tasdiqlang.
                 </AlertDialogDescription>
               </AlertDialogHeader>

@@ -3,6 +3,7 @@ const backend = process.env.BACKEND_URL || "http://127.0.0.1:8000"
 
 const nextConfig = {
   output: "standalone",
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   skipTrailingSlashRedirect: true,
   images: { unoptimized: true },
   async rewrites() {

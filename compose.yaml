@@ -25,14 +25,38 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1', 8000), timeout=3); s.close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     volumes:
       - media:/app/media
+  attendance_worker:
+    build: ./backend
+    command: ["python", "manage.py", "attendance_worker", "--watch", "--interval", "15"]
+    environment:
+      DB_HOST: db
+      DB_NAME: lms
+      DB_USER: lms
+      DB_PASSWORD: ${DB_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      DEBUG: "0"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 volumes:
   database:
   media:

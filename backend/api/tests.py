@@ -6,6 +6,7 @@ from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from rest_framework.test import APITestCase
 from .models import User, Assignment, Submission, CalendarEvent, Book, Course, AttendanceSession, AttendanceRecord, Notification
 from django.core.cache import cache
@@ -90,17 +91,22 @@ class IntegrationTests(APITestCase):
         url=f'/api/assignments/{self.assignment.pk}/submit/'
         for attempt in range(3):
             r=self.client.post(url,{'file':SimpleUploadedFile('answer.txt',b'answer'),'grade':'100'})
-            self.assertEqual(r.status_code,201,r.data);self.assertIsNone(r.data['grade'])
+            self.assertEqual(r.status_code,201,r.data);self.assertIsNone(r.data['grade']);self.assertIsNone(r.data['graded_at'])
         self.assertEqual(self.client.post(url,{'file':SimpleUploadedFile('answer.txt',b'answer')}).status_code,400)
         self.assertTrue(self.client.get('/api/assignments/').data[0]['is_submitted'])
         submission=Submission.objects.first()
         self.assertEqual(self.client.post(f'/api/grades/{submission.pk}/set/',{'grade':95}).status_code,403)
         self.authenticate(self.teacher)
         self.assertEqual(self.client.post(f'/api/grades/{submission.pk}/set/',{'grade':101}).status_code,400)
-        self.assertEqual(self.client.post(f'/api/grades/{submission.pk}/set/',{'grade':95}).status_code,200)
+        graded=self.client.post(f'/api/grades/{submission.pk}/set/',{'grade':95})
+        self.assertEqual(graded.status_code,200)
+        self.assertIsNotNone(graded.data['graded_at'])
+        submission.refresh_from_db()
+        self.assertIsNotNone(submission.graded_at)
         self.authenticate();r=self.client.get('/api/grades/my/')
         self.assertEqual(r.data[0]['assignment']['title'],'Python')
         self.assertEqual(float(r.data[0]['grade']),95)
+        self.assertEqual(r.data[0]['graded_at'],graded.data['graded_at'])
 
     def test_calendar_null_group_and_file_access(self):
         now=timezone.now()
@@ -150,6 +156,35 @@ class IntegrationTests(APITestCase):
         generic=self.client.post('/api/account/recover/',{'student_id':'NOPE','phone_number':'998901234567'},format='json')
         self.assertEqual(generic.status_code,200,generic.data)
         mock_send.assert_not_called()
+
+    @override_settings(TELEGRAM_BOT_TOKEN='123456:TESTTOKEN')
+    def test_telegram_mini_app_link_uses_signed_init_data(self):
+        import hashlib
+        import hmac
+        import json
+        import time
+        import urllib.parse
+
+        pairs = {
+            'auth_date': str(int(time.time())),
+            'query_id': 'AAEAAAE',
+            'user': json.dumps({'id': 987654321, 'first_name': 'Student'}, separators=(',', ':')),
+        }
+        check_string = '\n'.join(f'{key}={pairs[key]}' for key in sorted(pairs))
+        secret = hmac.new(b'WebAppData', b'123456:TESTTOKEN', hashlib.sha256).digest()
+        pairs['hash'] = hmac.new(secret, check_string.encode(), hashlib.sha256).hexdigest()
+        init_data = urllib.parse.urlencode(pairs)
+
+        self.authenticate()
+        linked = self.client.post('/api/account/telegram/link/', {'init_data': init_data}, format='json')
+        self.assertEqual(linked.status_code, 200, linked.data)
+        self.assertTrue(linked.data['telegram_connected'])
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.telegram_chat_id, '987654321')
+
+        tampered = init_data.replace('987654321', '987654322')
+        rejected = self.client.post('/api/account/telegram/link/', {'init_data': tampered}, format='json')
+        self.assertEqual(rejected.status_code, 400, rejected.data)
 
     def test_admin_user_forms_and_superuser_role(self):
         admin=User.objects.create_superuser(username='owner',password='StrongPass!246',fullname='Owner')
@@ -336,7 +371,7 @@ class IntegrationTests(APITestCase):
         self.assertEqual(self.client.post(member,{'username':'route-student'}).status_code,405)
         self.assertEqual(self.client.delete(member).status_code,204)
 
-    def test_automated_attendance_qr_ultrasound_location_and_finalize(self):
+    def test_automated_attendance_qr_ultrasound_location_and_auto_close(self):
         classmate=User.objects.create_user(username='auto-classmate',password='StrongPass!246',fullname='Auto Classmate')
         missing=User.objects.create_user(username='auto-missing',password='StrongPass!246',fullname='Auto Missing')
         self.course.students.add(classmate,missing)
@@ -425,12 +460,22 @@ class IntegrationTests(APITestCase):
         self.assertEqual(checked.data['status'],'late')
         self.assertEqual(checked.data['source'],'ultrasound')
 
+        session.starts_at=timezone.now()-timedelta(minutes=5)
+        session.save(update_fields=['starts_at'])
         self.authenticate(self.teacher)
-        finalized=self.client.post(f'/api/attendance/{session_id}/finalize/',{},format='json')
-        self.assertEqual(finalized.status_code,200,finalized.data)
+        synced=self.client.get(f'/api/attendance/{session_id}/')
+        self.assertEqual(synced.status_code,200,synced.data)
         missing_record=AttendanceRecord.objects.get(session_id=session_id,student=missing)
         self.assertEqual(missing_record.status,'absent')
         self.assertEqual(missing_record.source,'system')
+        session.refresh_from_db()
+        self.assertIsNone(session.ended_at)
+
+        session.starts_at=timezone.now()-timedelta(minutes=71)
+        session.save(update_fields=['starts_at'])
+        self.client.get(f'/api/attendance/{session_id}/')
+        session.refresh_from_db()
+        self.assertIsNotNone(session.ended_at)
 
         self.authenticate()
         after_end=self.client.post('/api/attendance/check-in/',{
@@ -442,6 +487,265 @@ class IntegrationTests(APITestCase):
             'accuracy':10,
         },format='json')
         self.assertEqual(after_end.status_code,400,after_end.data)
+
+    def test_presence_heartbeat_updates_last_seen_and_stale_state(self):
+        latitude=41.311081
+        longitude=69.240562
+        self.authenticate(self.teacher)
+        created=self.client.post('/api/attendance/',{
+            'course':self.course.pk,
+            'topic':'Presence heartbeat',
+            'starts_at':timezone.now().isoformat(),
+            'automated_checkin':True,
+            'attendance_minutes':4,
+            'late_after_minutes':1,
+            'location_latitude':latitude,
+            'location_longitude':longitude,
+            'location_radius_m':100,
+            'max_location_accuracy_m':50,
+        },format='json')
+        self.assertEqual(created.status_code,201,created.data)
+        session_id=created.data['id']
+
+        first_challenge=self.client.get(f'/api/attendance/{session_id}/challenge/')
+        self.authenticate()
+        checked=self.client.post('/api/attendance/check-in/',{
+            'session':session_id,
+            'channel':'qr',
+            'proof':first_challenge.data['qr_proof'],
+            'latitude':latitude,
+            'longitude':longitude,
+            'accuracy':8,
+        },format='json')
+        self.assertEqual(checked.status_code,201,checked.data)
+        self.assertEqual(checked.data['presence_samples'],1)
+        self.assertEqual(checked.data['presence_state'],'confirmed')
+        AttendanceRecord.objects.filter(session_id=session_id, student=self.student).update(
+            presence_alerted_at=timezone.now()
+        )
+
+        self.authenticate(self.teacher)
+        heartbeat_challenge=self.client.get(f'/api/attendance/{session_id}/challenge/')
+        self.assertEqual(heartbeat_challenge.status_code,200,heartbeat_challenge.data)
+        self.authenticate()
+        heartbeat=self.client.post('/api/attendance/presence/',{
+            'session':session_id,
+            'proof':heartbeat_challenge.data['ultrasound_code'],
+            'latitude':latitude,
+            'longitude':longitude,
+            'accuracy':9,
+        },format='json')
+        self.assertEqual(heartbeat.status_code,200,heartbeat.data)
+        self.assertTrue(heartbeat.data['presence_confirmed'])
+        self.assertEqual(heartbeat.data['presence_samples'],2)
+        self.assertEqual(heartbeat.data['presence_state'],'confirmed')
+
+        record=AttendanceRecord.objects.get(session_id=session_id,student=self.student)
+        self.assertIsNone(record.presence_alerted_at)
+        record.last_seen_at=timezone.now()-timedelta(minutes=6)
+        record.save(update_fields=['last_seen_at'])
+
+        self.authenticate(self.teacher)
+        detail=self.client.get(f'/api/attendance/{session_id}/')
+        self.assertEqual(detail.status_code,200,detail.data)
+        student_row=next(row for row in detail.data if row['student']==self.student.pk)
+        self.assertEqual(student_row['presence_state'],'stale')
+
+    def test_attendance_worker_alerts_stale_presence_once(self):
+        now = timezone.now()
+        session = AttendanceSession.objects.create(
+            course=self.course, topic='Signal monitoring',
+            starts_at=now - timedelta(minutes=8), automated_checkin=True,
+            attendance_minutes=3, late_after_minutes=1,
+        )
+        record = AttendanceRecord.objects.create(
+            session=session, student=self.student, status='present',
+            source='ultrasound', checked_at=now - timedelta(minutes=8),
+            last_seen_at=now - timedelta(minutes=6), presence_samples=2,
+        )
+        call_command('attendance_worker')
+        record.refresh_from_db()
+        self.assertIsNotNone(record.presence_alerted_at)
+        self.assertEqual(Notification.objects.filter(user=self.teacher, type='attendance').count(), 1)
+        self.assertEqual(Notification.objects.filter(user=self.student, type='attendance').count(), 1)
+        call_command('attendance_worker')
+        self.assertEqual(Notification.objects.filter(type='attendance').count(), 2)
+
+    def test_lesson_schedule_starts_reuses_and_auto_ends_attendance(self):
+        now=timezone.now()
+        event=CalendarEvent.objects.create(
+            course=self.course,
+            title='Web dasturlash',
+            description='IT102-26',
+            event_type='lesson',
+            start_time=now-timedelta(minutes=1),
+            end_time=now+timedelta(minutes=69),
+            room='A-301',
+            period=1,
+            for_group='IT102-26',
+            created_by=self.teacher,
+        )
+        self.authenticate(self.teacher)
+        started=self.client.post(
+            f'/api/lessons/{event.pk}/attendance/',
+            {'latitude':41.311081,'longitude':69.240562},
+            format='json',
+        )
+        self.assertEqual(started.status_code,201,started.data)
+        session_id=started.data['session']['id']
+        self.assertEqual(started.data['session']['calendar_event'],event.pk)
+        self.assertEqual(started.data['event']['room'],'A-301')
+        self.assertEqual(started.data['event']['period'],1)
+
+        again=self.client.post(
+            f'/api/lessons/{event.pk}/attendance/',
+            {'latitude':41.311081,'longitude':69.240562},
+            format='json',
+        )
+        self.assertEqual(again.status_code,200,again.data)
+        self.assertEqual(again.data['session']['id'],session_id)
+
+        self.authenticate()
+        active=self.client.get('/api/attendance/active/')
+        self.assertEqual(active.status_code,200,active.data)
+        self.assertIn(session_id,[row['id'] for row in active.data])
+
+        session=AttendanceSession.objects.get(pk=session_id)
+        event.end_time=timezone.now()-timedelta(seconds=1)
+        event.save(update_fields=['end_time'])
+        self.authenticate(self.teacher)
+        state=self.client.get(f'/api/lessons/{event.pk}/attendance/')
+        self.assertEqual(state.status_code,200,state.data)
+        session.refresh_from_db()
+        self.assertIsNotNone(session.ended_at)
+
+    def test_attendance_group_scope_supports_seminar_and_multi_group_lecture(self):
+        self.student.group_code='IT102-26'
+        self.student.save(update_fields=['group_code'])
+        second=User.objects.create_user(
+            username='group-b-student',
+            password='StrongPass!246',
+            fullname='Group B Student',
+            group_code='IT103-26',
+        )
+        outsider=User.objects.create_user(
+            username='group-c-student',
+            password='StrongPass!246',
+            fullname='Group C Student',
+            group_code='IT104-26',
+        )
+        self.course.students.add(second,outsider)
+        now=timezone.now()
+
+        seminar=CalendarEvent.objects.create(
+            course=self.course,
+            title='Seminar',
+            description='One group',
+            event_type='lesson',
+            start_time=now-timedelta(minutes=1),
+            end_time=now+timedelta(minutes=69),
+            room='A-301',
+            period=1,
+            for_group='IT102-26',
+            created_by=self.teacher,
+        )
+        self.authenticate(self.teacher)
+        started=self.client.post(
+            f'/api/lessons/{seminar.pk}/attendance/',
+            {'latitude':41.311081,'longitude':69.240562},
+            format='json',
+        )
+        self.assertEqual(started.status_code,201,started.data)
+        seminar_session=started.data['session']['id']
+        self.assertEqual(started.data['session']['student_count'],1)
+        seminar_roster=self.client.get(f'/api/attendance/{seminar_session}/roster/')
+        self.assertEqual(seminar_roster.status_code,200,seminar_roster.data)
+        self.assertEqual([row['id'] for row in seminar_roster.data],[self.student.pk])
+
+        self.authenticate(second)
+        active=self.client.get('/api/attendance/active/')
+        self.assertNotIn(seminar_session,[row['id'] for row in active.data])
+        blocked=self.client.post('/api/attendance/check-in/',{
+            'session':seminar_session,
+            'channel':'qr',
+            'proof':'not-used-because-group-check-runs-first',
+            'latitude':41.311081,
+            'longitude':69.240562,
+            'accuracy':8,
+        },format='json')
+        self.assertEqual(blocked.status_code,403,blocked.data)
+
+        lecture_course=Course.objects.create(
+            title='Lecture course',
+            code='LECT-101',
+            teacher=self.teacher,
+        )
+        lecture_course.students.add(self.student,second,outsider)
+        lecture=CalendarEvent.objects.create(
+            course=lecture_course,
+            title='Lecture',
+            description='Two groups',
+            event_type='lesson',
+            start_time=now-timedelta(minutes=1),
+            end_time=now+timedelta(minutes=69),
+            room='Hall-1',
+            period=2,
+            for_group='IT102-26, IT103-26',
+            created_by=self.teacher,
+        )
+        self.authenticate(self.teacher)
+        lecture_started=self.client.post(
+            f'/api/lessons/{lecture.pk}/attendance/',
+            {'latitude':41.311081,'longitude':69.240562},
+            format='json',
+        )
+        self.assertEqual(lecture_started.status_code,201,lecture_started.data)
+        lecture_session=lecture_started.data['session']['id']
+        self.assertEqual(lecture_started.data['session']['student_count'],2)
+        lecture_roster=self.client.get(f'/api/attendance/{lecture_session}/roster/')
+        self.assertEqual(
+            {row['id'] for row in lecture_roster.data},
+            {self.student.pk,second.pk},
+        )
+
+        self.authenticate(second)
+        active=self.client.get('/api/attendance/active/')
+        self.assertIn(lecture_session,[row['id'] for row in active.data])
+
+    def test_manual_attendance_marks_one_student_without_overwriting_other_sources(self):
+        classmate=User.objects.create_user(username='manual-classmate',password='StrongPass!246',fullname='Manual Classmate')
+        self.course.students.add(classmate)
+        session=AttendanceSession.objects.create(
+            course=self.course,
+            starts_at=timezone.now(),
+            topic='Manual roster correction',
+            automated_checkin=False,
+        )
+        existing=AttendanceRecord.objects.create(
+            session=session,
+            student=self.student,
+            status='present',
+            source='qr',
+            checked_at=timezone.now(),
+        )
+
+        self.authenticate(self.teacher)
+        marked=self.client.post(
+            f'/api/attendance/{session.pk}/manual/',
+            {'student':classmate.pk,'status':'excused','note':'Telefon ishlamadi'},
+            format='json',
+        )
+        self.assertEqual(marked.status_code,200,marked.data)
+        self.assertEqual(marked.data['student'],classmate.pk)
+        self.assertEqual(marked.data['status'],'excused')
+        self.assertEqual(marked.data['source'],'manual')
+
+        existing.refresh_from_db()
+        self.assertEqual(existing.status,'present')
+        self.assertEqual(existing.source,'qr')
+        manual=AttendanceRecord.objects.get(session=session,student=classmate)
+        self.assertEqual(manual.note,'Telefon ishlamadi')
+        self.assertEqual(AttendanceRecord.objects.filter(session=session).count(),2)
 
     def test_upload_download_format_matrix_and_deadline(self):
         self.authenticate(self.teacher)
@@ -516,3 +820,80 @@ class IntegrationTests(APITestCase):
             {'file':SimpleUploadedFile('late.pdf',b'%PDF-1.4 late')},
         )
         self.assertEqual(late.status_code,400,late.data)
+
+
+    def test_admin_api_is_private_and_manages_accounts(self):
+        self.authenticate()
+        self.assertEqual(self.client.get('/api/admin/users/').status_code, 403)
+        self.assertEqual(self.client.get('/api/admin/stats/').status_code, 403)
+
+        owner = User.objects.create_superuser(
+            username='api-owner',
+            password='OwnerPass!246',
+            fullname='API Owner',
+        )
+        self.authenticate(owner)
+
+        listing = self.client.get('/api/admin/users/')
+        self.assertEqual(listing.status_code, 200, listing.data)
+        self.assertNotIn(owner.pk, [row['id'] for row in listing.data])
+
+        created = self.client.post('/api/admin/users/', {
+            'fullname': 'New Student',
+            'username': 'new-admin-created-student',
+            'role': 'student',
+            'student_id': 'ADM-001',
+            'phone_number': '+998901112233',
+            'telegram_chat_id': '998001122',
+            'email': 'student@example.com',
+            'password': 'StartPass!579',
+            'is_active': True,
+        }, format='json')
+        self.assertEqual(created.status_code, 201, created.data)
+
+        managed = User.objects.get(username='new-admin-created-student')
+        self.assertTrue(managed.must_change_password)
+        self.assertTrue(managed.check_password('StartPass!579'))
+        self.assertEqual(managed.telegram_chat_id, '998001122')
+
+        updated = self.client.patch(
+            f'/api/admin/users/{managed.pk}/',
+            {'is_active': False},
+            format='json',
+        )
+        self.assertEqual(updated.status_code, 200, updated.data)
+        managed.refresh_from_db()
+        self.assertFalse(managed.is_active)
+
+        stats = self.client.get('/api/admin/stats/')
+        self.assertEqual(stats.status_code, 200, stats.data)
+        self.assertIn('students_active', stats.data)
+        self.assertIn('submissions_pending', stats.data)
+
+
+    def test_admin_course_creation_requires_teacher_assignment(self):
+        owner = User.objects.create_superuser(
+            username='course-owner',
+            password='OwnerPass!246',
+            fullname='Course Owner',
+        )
+        self.authenticate(owner)
+
+        missing_teacher = self.client.post(
+            '/api/courses/',
+            {'title': 'Missing teacher', 'code': 'ADM-NO-TEACHER'},
+            format='json',
+        )
+        self.assertEqual(missing_teacher.status_code, 400, missing_teacher.data)
+
+        created = self.client.post(
+            '/api/courses/',
+            {
+                'title': 'Admin managed course',
+                'code': 'ADM-COURSE',
+                'teacher': self.teacher.pk,
+            },
+            format='json',
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data['teacher'], self.teacher.pk)

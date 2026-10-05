@@ -21,9 +21,9 @@ Integrated version of https://github.com/Abdullo200604/LMS (original author attr
 
 Materials retain the original database model name `Book`. Courses are now separate real records. Fake video lessons, progress, discussion and offline login were removed. See FEATURES.md for role boundaries and upgrade notes, and SECURITY_AUDIT.md for the latest IDOR, deadline, upload, N+1 and XSS-sink audit results.
 
-## Docker: frontend + backend + database
+## Docker: frontend + backend + attendance worker + database
 
-Requires Docker with Compose.
+Requires Docker with Compose. The separate `attendance_worker` service closes scheduled sessions and sends stale-presence alerts; keep it running alongside the backend.
 
 1. Copy `.env.example` to `.env` and set strong random `SECRET_KEY` and `DB_PASSWORD` values.
 2. Run `docker compose up --build -d`.
@@ -56,6 +56,8 @@ pnpm install --frozen-lockfile --ignore-scripts
 pnpm dev
 ```
 
+For automatic attendance closure and presence alerts, run `python manage.py attendance_worker --watch --interval 15` in a separate backend terminal.
+
 Open http://localhost:3000. No API keys or remote tunnel are required. Local SQLite is created automatically. To use PostgreSQL instead, provide DB_HOST, DB_NAME, DB_USER, DB_PASSWORD and DB_PORT.
 
 `BACKEND_URL` is a **server-side, build-time** frontend setting, defaulting to http://127.0.0.1:8000. Docker sets it to http://backend:8000. Rebuild the frontend when changing it. Never put secrets in NEXT_PUBLIC variables.
@@ -79,8 +81,8 @@ pnpm build
 
 Integration tests cover registration privilege protection, login, HttpOnly refresh-cookie rotation, logout blacklisting, profile persistence, protected endpoints, teacher assignment creation, ISO timestamps, file submission/attempt limits, grading, calendar visibility and authenticated file access.
 
-Before production rollout, validate the institution’s acceptance requirements, PostgreSQL concurrency, operational backups, account/password recovery and file malware scanning. File type/size limits, login throttling and course-based access are implemented. Hosting, Docker execution and browser interaction testing remain unverified here.
+Before production rollout, validate the institution’s acceptance requirements, PostgreSQL concurrency, operational backups, account/password recovery and file malware scanning. File type/size limits, login throttling and course-based access are implemented. Hosting and Docker execution remain unverified here; browser smoke covers role navigation and teacher deep links, with the full interaction walkthrough still pending.
 
 ## Eski bazani yangilash
 
-Avval baza va `media/` katalogidan zaxira nusxa oling, so‘ng `python manage.py migrate` bajaring. Bu SimpleJWT token-blacklist jadvallarini ham yaratadi. Eski fayl/topshiriqlar o‘chirilmaydi. Administrator ularni tegishli kursga biriktirmaguncha talabalar ko‘rmaydi; muallif ustoz va administrator ko‘ra oladi. Eski takrorlangan urinish raqamlari ma’lumotni saqlagan holda tartiblanadi. Ustoz akkauntlarini administrator tasdiqlaydi; ochiq ro‘yxatdan o‘tish faqat talaba uchun.
+Avval baza va `media/` katalogidan zaxira nusxa oling, so‘ng `python manage.py migrate` bajaring. Bu SimpleJWT token-blacklist jadvallarini ham yaratadi. Eski fayl/topshiriqlar o‘chirilmaydi. Administrator ularni tegishli kursga biriktirmaguncha talabalar ko‘rmaydi; muallif ustoz va administrator ko‘ra oladi. Eski takrorlangan urinish raqamlari ma’lumotni saqlagan holda tartiblanadi. Talaba va ustoz hisoblarini administrator yaratadi; ommaviy ro‘yxatdan o‘tish yopiq.

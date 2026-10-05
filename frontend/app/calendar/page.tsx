@@ -40,6 +40,7 @@ export default function CalendarPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("uz-UZ", {
+      timeZone: "Asia/Tashkent",
       weekday: "short",
       year: "numeric",
       month: "short",
@@ -49,6 +50,7 @@ export default function CalendarPage() {
 
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString("uz-UZ", {
+      timeZone: "Asia/Tashkent",
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -57,7 +59,7 @@ export default function CalendarPage() {
   const getUpcomingEvents = () => {
     const now = new Date();
     return events
-      .filter((event) => event.start_date && new Date(event.start_date) >= now)
+      .filter((event) => event.start_date && new Date(event.end_date || event.start_date) >= now)
       .sort(
         (a, b) =>
           new Date(a.start_date!).getTime() - new Date(b.start_date!).getTime(),
@@ -66,13 +68,21 @@ export default function CalendarPage() {
   };
 
   const getTodayEvents = () => {
-    const today = new Date();
-    const todayStr = today.toDateString();
-    return events.filter(
-      (event) =>
-        event.start_date &&
-        new Date(event.start_date).toDateString() === todayStr,
-    );
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Tashkent",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const dayKey = (date: Date) => {
+      const parts = formatter.formatToParts(date);
+      const value = (type: string) => parts.find((part) => part.type === type)?.value;
+      return `${value("year")}-${value("month")}-${value("day")}`;
+    };
+    const todayKey = dayKey(new Date());
+    return events
+      .filter((event) => event.start_date && dayKey(new Date(event.start_date)) === todayKey)
+      .sort((a, b) => new Date(a.start_date!).getTime() - new Date(b.start_date!).getTime());
   };
 
   return (

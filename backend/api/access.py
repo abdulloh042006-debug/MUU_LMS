@@ -37,6 +37,13 @@ class TeacherOnly(BasePermission):
         return is_teacher(request.user)
 
 
+class AdminOnly(BasePermission):
+    message = 'Bu amal faqat administrator uchun.'
+
+    def has_permission(self, request, view):
+        return is_admin(request.user)
+
+
 def courses_for(user):
     if is_admin(user):
         return Course.objects.all()

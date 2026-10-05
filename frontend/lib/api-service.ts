@@ -116,6 +116,16 @@ export const updateUserProfile = (u: any) =>
     method: "PATCH",
     body: JSON.stringify(u),
   });
+
+export const getAdminStats = () => fetchAPI("/admin/stats/");
+export const getAdminUsers = () => fetchAPI("/admin/users/");
+export const createAdminUser = (data: any) =>
+  fetchAPI("/admin/users/", post(data));
+export const updateAdminUser = (id: number, data: any) =>
+  fetchAPI(`/admin/users/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
 export async function changePassword(
   currentPassword: string,
   newPassword: string,
@@ -181,10 +191,7 @@ export async function testConnection() {
 
 export async function downloadFile(path: string, retry = true): Promise<void> {
   const url = new URL(path, window.location.origin);
-  if (
-    url.origin !== window.location.origin ||
-    !url.pathname.startsWith("/media/")
-  )
+  if (!url.pathname.startsWith("/media/"))
     throw new Error("Fayl manzili noto‘g‘ri.");
   const headers = new Headers();
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
@@ -236,6 +243,12 @@ export const removeBook = (id: number) =>
   fetchAPI(`/books/${id}/`, { method: "DELETE" });
 export const removeEvent = (id: number) =>
   fetchAPI(`/calendar/${id}/`, { method: "DELETE" });
+export const getLessonAttendance = (eventId: number) =>
+  fetchAPI(`/lessons/${eventId}/attendance/`);
+export const startLessonAttendance = (
+  eventId: number,
+  location: { latitude: number; longitude: number },
+) => fetchAPI(`/lessons/${eventId}/attendance/`, post(location));
 export const getAttendanceSessions = () => fetchAPI("/attendance/");
 export const createAttendanceSession = (data: any) =>
   fetchAPI("/attendance/", post(data));
@@ -246,6 +259,12 @@ export const saveAttendance = (id: number, records: any[]) =>
     method: "PUT",
     body: JSON.stringify({ records }),
   });
+export const markAttendanceStudent = (
+  id: number,
+  student: number,
+  status: "present" | "late" | "absent" | "excused",
+  note = "",
+) => fetchAPI(`/attendance/${id}/manual/`, post({ student, status, note }));
 export const getMyAttendance = () => fetchAPI("/attendance/my/");
 export const getActiveAttendance = () => fetchAPI("/attendance/active/");
 export const getAttendanceChallenge = (id: number) =>
@@ -258,10 +277,15 @@ export const checkInAttendance = (data: {
   longitude: number;
   accuracy: number;
 }) => fetchAPI("/attendance/check-in/", post(data));
-export const finalizeAttendance = (id: number) =>
-  fetchAPI(`/attendance/${id}/finalize/`, post({}));
+export const NOTIFICATIONS_CHANGED = "lms:notifications-changed";
 export const getNotifications = () => fetchAPI("/notifications/");
-export const markNotificationRead = (id: number) =>
-  fetchAPI(`/notifications/${id}/read/`, post({}));
-export const markAllNotificationsRead = () =>
-  fetchAPI("/notifications/read-all/", post({}));
+export async function markNotificationRead(id: number) {
+  const result = await fetchAPI(`/notifications/${id}/read/`, post({}));
+  window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
+  return result;
+}
+export async function markAllNotificationsRead() {
+  const result = await fetchAPI("/notifications/read-all/", post({}));
+  window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
+  return result;
+}

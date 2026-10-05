@@ -4,9 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
   CheckCircle2,
-  Loader2,
   MapPin,
-  Mic,
+  Radio,
   ScanLine,
 } from "lucide-react";
 import * as api from "@/lib/api-service";
@@ -82,6 +81,10 @@ export function AttendanceCheckIn({
   const streamRef = useRef<MediaStream | null>(null);
   const scanTimerRef = useRef<number | null>(null);
   const zoomTimerRef = useRef<number | null>(null);
+  const autoUltrasoundTriedRef = useRef<Set<number>>(new Set());
+  const ultrasoundListenerRef = useRef<
+    (session: ActiveSession, silent?: boolean) => Promise<void>
+  >(async () => undefined);
 
   const load = useCallback(async () => {
     try {
@@ -152,10 +155,15 @@ export function AttendanceCheckIn({
   async function startQrScanner() {
     setError("");
     setMessage("");
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setError("Kamera uchun HTTPS yoki telefonda localhost orqali xavfsiz ulanish kerak.");
+      return;
+    }
     setScannerStatus("Kamera ochilmoqda…");
     setScannerOpen(true);
 
     const geoPromise = freshLocation();
+    void geoPromise.catch(() => undefined);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -262,8 +270,8 @@ export function AttendanceCheckIn({
     }
   }
 
-  async function listenUltrasound(session: ActiveSession) {
-    setBusySession(session.id);
+  async function listenUltrasound(session: ActiveSession, silent = false) {
+    if (!silent) setBusySession(session.id);
     setError("");
     setMessage("");
     const geoPromise = freshLocation();
@@ -324,10 +332,12 @@ export function AttendanceCheckIn({
           if (timer) window.clearInterval(timer);
           stream?.getTracks().forEach((track) => track.stop());
           ctx?.close().catch(() => undefined);
-          setBusySession(null);
-          setError(
-            "Ultrasound signal topilmadi. Qurilmani auditoriya ichida ushlab qayta urinib ko‘ring.",
-          );
+          if (!silent) {
+            setBusySession(null);
+            setError(
+              "Ultrasound signal topilmadi. QR orqali urinib ko‘ring.",
+            );
+          }
           return;
         }
 
@@ -387,10 +397,26 @@ export function AttendanceCheckIn({
       if (timer) window.clearInterval(timer);
       stream?.getTracks().forEach((track) => track.stop());
       await ctx?.close().catch(() => undefined);
-      setBusySession(null);
-      setError(e instanceof Error ? e.message : String(e));
+      if (!silent) {
+        setBusySession(null);
+        setError(e instanceof Error ? e.message : String(e));
+      }
     }
   }
+
+  ultrasoundListenerRef.current = listenUltrasound;
+
+  useEffect(() => {
+    const session = sessions.find(
+      (item) =>
+        !item.already_checked_in &&
+        !autoUltrasoundTriedRef.current.has(item.id),
+    );
+    if (!session || typeof window === "undefined" || !window.isSecureContext)
+      return;
+    autoUltrasoundTriedRef.current.add(session.id);
+    void ultrasoundListenerRef.current(session, true);
+  }, [sessions]);
 
   if (loading) return <p className="mb-5">Faol davomat tekshirilmoqda…</p>;
 
@@ -418,24 +444,21 @@ export function AttendanceCheckIn({
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
-                    disabled={busySession !== null}
-                    onClick={() => listenUltrasound(session)}
-                  >
-                    {busySession === session.id ? (
-                      <Loader2 className="animate-spin" size={16} />
-                    ) : (
-                      <Mic size={16} />
-                    )}
-                    Ultrasound
-                  </Button>
-                  <Button
-                    type="button"
                     variant="outline"
                     disabled={busySession !== null}
                     onClick={startQrScanner}
                   >
                     <ScanLine size={16} />
                     QR skan
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busySession !== null || session.already_checked_in}
+                    onClick={() => void listenUltrasound(session)}
+                  >
+                    <Radio size={16} />
+                    {busySession === session.id ? "Tinglanmoqda…" : "Ultrasound sinash"}
                   </Button>
                 </div>
               </div>
@@ -444,8 +467,14 @@ export function AttendanceCheckIn({
         ))}
         {!sessions.length && (
           <Card>
-            <CardContent className="p-5 text-sm text-muted-foreground">
-              Hozir faol avtomatik davomat sessiyasi yo‘q.
+            <CardContent className="space-y-3 p-5">
+              <p className="text-sm text-muted-foreground">
+                Hozir faol davomat sessiyasi yo‘q. Ustoz boshlagach bu yerda ko‘rinadi.
+              </p>
+              <Button type="button" variant="outline" onClick={() => void startQrScanner()}>
+                <ScanLine size={16} />
+                QR skanerni ochish
+              </Button>
             </CardContent>
           </Card>
         )}

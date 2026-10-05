@@ -4,18 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck, RefreshCw } from "lucide-react";
+import { ProtectedRoute } from "@/components/protected-route";
+import { Button } from "@/components/ui/button";
 import {
   getNotifications,
   NOTIFICATIONS_CHANGED,
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/lib/api-service";
-import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
 type Notification = {
   id: number;
@@ -27,10 +23,9 @@ type Notification = {
   created_at: string;
 };
 
-export function NotificationBell() {
+export default function NotificationsPage() {
   const router = useRouter();
   const [items, setItems] = useState<Notification[]>([]);
-  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -54,10 +49,6 @@ export function NotificationBell() {
     window.addEventListener(NOTIFICATIONS_CHANGED, refresh);
     return () => window.removeEventListener(NOTIFICATIONS_CHANGED, refresh);
   }, [load]);
-
-  useEffect(() => {
-    if (open) void load();
-  }, [open, load]);
 
   const unread = useMemo(
     () => items.reduce((total, item) => total + (item.is_read ? 0 : 1), 0),
@@ -98,45 +89,20 @@ export function NotificationBell() {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="notification-trigger"
-          aria-label={
-            unread
-              ? `Bildirishnomalar — ${unread} ta yangi`
-              : "Bildirishnomalar"
-          }
-        >
-          <Bell size={19} />
-          {unread > 0 && (
-            <span className="notification-count" aria-hidden="true">
-              {unread > 9 ? "9+" : unread}
-            </span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={10}
-        className="notification-panel p-0"
-      >
-        <div className="notification-panel-header">
+    <ProtectedRoute>
+      <main className="workspace-page notifications-page">
+        <div className="workspace-heading">
           <div>
-            <strong>Bildirishnomalar</strong>
-            <small>{unread ? `${unread} ta yangi` : "Hammasi o‘qilgan"}</small>
+            <h1>Bildirishnomalar</h1>
+            <p>
+              Topshiriq, baho, material va darslardagi muhim o‘zgarishlar shu
+              yerda.
+            </p>
           </div>
           {unread > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={markAll}
-            >
-              <CheckCheck size={15} />
-              O‘qildi
+            <Button type="button" variant="outline" onClick={markAll} disabled={busy}>
+              <CheckCheck size={16} />
+              Hammasini o‘qildi
             </Button>
           )}
         </div>
@@ -145,7 +111,7 @@ export function NotificationBell() {
           <div className="notification-state error">
             <span>{error}</span>
             <button type="button" onClick={load} aria-label="Qayta yuklash">
-              <RefreshCw size={15} />
+              <RefreshCw size={16} />
             </button>
           </div>
         )}
@@ -153,37 +119,41 @@ export function NotificationBell() {
         {loading ? (
           <div className="notification-state">Yuklanmoqda…</div>
         ) : !items.length ? (
-          <div className="notification-state">Yangi bildirishnoma yo‘q.</div>
+          <div className="empty-message">
+            <Bell />
+            <span>Hozircha bildirishnoma yo‘q.</span>
+          </div>
         ) : (
-          <div className="notification-list">
+          <div className="notifications-page-list">
             {items.map((item) => {
               const body = (
                 <>
-                  <span className="notification-title">{item.title}</span>
-                  {item.message && (
-                    <span className="notification-message">{item.message}</span>
-                  )}
-                  <time dateTime={item.created_at}>
-                    {new Date(item.created_at).toLocaleString("uz-UZ", {
-                      day: "2-digit",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      timeZone: "Asia/Tashkent",
-                    })}
-                  </time>
+                  <div>
+                    <strong>{item.title}</strong>
+                    {item.message && <p>{item.message}</p>}
+                    <time dateTime={item.created_at}>
+                      {new Date(item.created_at).toLocaleString("uz-UZ", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone: "Asia/Tashkent",
+                      })}
+                    </time>
+                  </div>
+                  {!item.is_read && <span className="notifications-unread-dot" />}
                 </>
               );
+
               return item.link ? (
                 <Link
-                  href={item.link}
                   key={item.id}
-                  className={`notification-item ${item.is_read ? "" : "unread"}`}
+                  href={item.link}
+                  className={`notifications-page-item ${item.is_read ? "" : "unread"}`}
                   onClick={async (event) => {
                     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                     event.preventDefault();
                     await markRead(item);
-                    setOpen(false);
                     router.push(item.link);
                   }}
                 >
@@ -193,7 +163,7 @@ export function NotificationBell() {
                 <button
                   type="button"
                   key={item.id}
-                  className={`notification-item ${item.is_read ? "" : "unread"}`}
+                  className={`notifications-page-item ${item.is_read ? "" : "unread"}`}
                   onClick={() => void markRead(item)}
                 >
                   {body}
@@ -202,7 +172,7 @@ export function NotificationBell() {
             })}
           </div>
         )}
-      </PopoverContent>
-    </Popover>
+      </main>
+    </ProtectedRoute>
   );
 }

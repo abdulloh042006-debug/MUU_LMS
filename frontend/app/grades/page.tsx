@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  Award,
+  ChartNoAxesCombined,
+  ChevronRight,
+  MessageSquareText,
+} from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
-import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Award, TrendingUp, TrendingDown } from "lucide-react";
 import { getMyGrades } from "@/lib/api-service";
 
 interface Grade {
@@ -12,11 +17,19 @@ interface Grade {
   assignment?: {
     id: string;
     title: string;
+    course_title?: string;
     due_date?: string;
   };
-  grade?: number;
+  grade?: number | null;
   feedback?: string;
   graded_at?: string;
+}
+
+function gradeLabel(value: number) {
+  if (value >= 90) return "A’lo";
+  if (value >= 80) return "Yaxshi";
+  if (value >= 70) return "Qoniqarli";
+  return "Yaxshilash kerak";
 }
 
 export default function GradesPage() {
@@ -38,230 +51,152 @@ export default function GradesPage() {
       }
     };
 
-    fetchGrades();
+    void fetchGrades();
   }, []);
 
-  const calculateStats = () => {
-    if (grades.length === 0)
-      return { average: 0, highest: 0, lowest: 0, total: 0 };
+  const stats = useMemo(() => {
+    const values = grades
+      .filter((item) => item.grade !== null && item.grade !== undefined)
+      .map((item) => Number(item.grade));
 
-    const validGrades = grades
-      .filter((g) => g.grade !== undefined && g.grade !== null)
-      .map((g) => g.grade!);
-
-    if (validGrades.length === 0)
-      return { average: 0, highest: 0, lowest: 0, total: 0 };
-
-    const average =
-      validGrades.reduce((sum, grade) => sum + grade, 0) / validGrades.length;
-    const highest = Math.max(...validGrades);
-    const lowest = Math.min(...validGrades);
+    if (!values.length) {
+      return { average: null as number | null, highest: null as number | null, total: 0 };
+    }
 
     return {
-      average: Math.round(average * 10) / 10,
-      highest,
-      lowest,
-      total: validGrades.length,
+      average: Math.round(
+        values.reduce((sum, value) => sum + value, 0) / values.length,
+      ),
+      highest: Math.max(...values),
+      total: values.length,
     };
-  };
+  }, [grades]);
 
-  const stats = calculateStats();
-
-  const getGradeColor = (grade: number) => {
-    if (grade >= 90) return "text-green-600";
-    if (grade >= 80) return "text-blue-600";
-    if (grade >= 70) return "text-yellow-600";
-    return "text-red-600";
-  };
-
-  const getGradeBgColor = (grade: number) => {
-    if (grade >= 90) return "bg-green-50 border-green-200";
-    if (grade >= 80) return "bg-blue-50 border-blue-200";
-    if (grade >= 70) return "bg-yellow-50 border-yellow-200";
-    return "bg-red-50 border-red-200";
-  };
+  const sortedGrades = useMemo(
+    () =>
+      [...grades].sort(
+        (a, b) =>
+          new Date(b.graded_at || 0).getTime() -
+          new Date(a.graded_at || 0).getTime(),
+      ),
+    [grades],
+  );
 
   return (
     <ProtectedRoute>
       <main className="workspace-page">
-          <div className="workspace-heading">
-            <div>
-              <p className="eyebrow">NATIJALAR VA USTOZ IZOHILARI</p>
-              <h1>Mening baholarim</h1>
-              <p>Baholangan topshiriqlar va berilgan fikr-mulohazalarni kuzating.</p>
-            </div>
+        <div className="workspace-heading">
+          <div>
+            <p className="eyebrow">NATIJALAR VA USTOZ IZOHILARI</p>
+            <h1>Mening baholarim</h1>
+            <p>Baho bilan birga ustoz qoldirgan izohni ham shu yerda ko‘ring.</p>
           </div>
+        </div>
 
-          {error && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
-            </div>
-          ) : (
-            <>
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <Card className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-gray-500 text-sm mb-1">
-                        O‘rtacha baho
-                      </p>
-                      <p
-                        className={`text-2xl font-semibold ${getGradeColor(stats.average)}`}
-                      >
-                        {stats.average}%
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
-                      <Award className="w-5 h-5 text-teal-600" />
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-gray-500 text-sm mb-1">
-                        Eng yuqori baho
-                      </p>
-                      <p
-                        className={`text-2xl font-semibold ${getGradeColor(stats.highest)}`}
-                      >
-                        {stats.highest}%
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-green-600" />
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-gray-500 text-sm mb-1">
-                        Eng past baho
-                      </p>
-                      <p
-                        className={`text-2xl font-semibold ${getGradeColor(stats.lowest)}`}
-                      >
-                        {stats.lowest}%
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                      <TrendingDown className="w-5 h-5 text-red-600" />
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-gray-500 text-sm mb-1">Baholangan jami</p>
-                      <p className="text-2xl font-semibold">{stats.total}</p>
-                    </div>
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Award className="w-5 h-5 text-blue-600" />
-                    </div>
-                  </div>
-                </Card>
+        {isLoading ? (
+          <div className="notification-state">Yuklanmoqda…</div>
+        ) : (
+          <>
+            <section className="grade-summary-grid" aria-label="Baholar statistikasi">
+              <div className="grade-summary-primary">
+                <span>O‘rtacha natija</span>
+                <strong>
+                  {stats.average === null ? "—" : stats.average}
+                  {stats.average !== null && <small>/100</small>}
+                </strong>
+                <p>
+                  {stats.total
+                    ? `${stats.total} ta baholangan topshiriq`
+                    : "Hali baho qo‘yilmagan"}
+                </p>
               </div>
-
-              {/* Grades List */}
-              {grades.length === 0 ? (
-                <div className="text-center py-12">
-                  <Award className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h2 className="text-xl font-semibold text-gray-700">
-                    Hozircha baholar yo‘q
-                  </h2>
-                  <p className="text-gray-500 mt-2">
-                    Baholangan topshiriqlaringiz shu yerda ko‘rinadi
-                  </p>
+              <div className="grade-summary-card">
+                <Award size={20} />
+                <div>
+                  <span>Eng yuqori</span>
+                  <strong>{stats.highest === null ? "—" : stats.highest}</strong>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {grades.map((grade) => (
-                    <Card
-                      key={grade.id}
-                      className={`border-l-4 ${grade.grade ? getGradeBgColor(grade.grade) : "bg-gray-50 border-gray-200"}`}
+              </div>
+              <div className="grade-summary-card">
+                <ChartNoAxesCombined size={20} />
+                <div>
+                  <span>Baholangan</span>
+                  <strong>{stats.total}</strong>
+                </div>
+              </div>
+            </section>
+
+            {!sortedGrades.length ? (
+              <div className="empty-message">
+                <Award />
+                <p>Hozircha baholangan topshiriq yo‘q.</p>
+              </div>
+            ) : (
+              <section className="grade-feed">
+                {sortedGrades.map((item) => {
+                  const value =
+                    item.grade === null || item.grade === undefined
+                      ? null
+                      : Number(item.grade);
+
+                  return (
+                    <Link
+                      key={item.id}
+                      href={
+                        item.assignment?.id
+                          ? `/assignments/${item.assignment.id}`
+                          : "/assignments"
+                      }
+                      className="grade-feed-row"
                     >
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-lg mb-2">
-                              {grade.assignment?.title || "Topshiriq"}
-                            </h3>
+                      <div className="grade-feed-score">
+                        <strong>{value === null ? "—" : value}</strong>
+                        <span>{value === null ? "Kutilmoqda" : gradeLabel(value)}</span>
+                      </div>
 
-                            {grade.feedback && (
-                              <p className="text-gray-600 mb-3">
-                                {grade.feedback}
-                              </p>
-                            )}
+                      <div className="grade-feed-content">
+                        <span className="grade-feed-subject">
+                          {item.assignment?.course_title || "Topshiriq"}
+                        </span>
+                        <h2>{item.assignment?.title || "Topshiriq"}</h2>
 
-                            <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                              {grade.assignment?.due_date && (
-                                <span>
-                                  Muddat:{" "}
-                                  {new Date(
-                                    grade.assignment.due_date,
-                                  ).toLocaleDateString()}
-                                </span>
-                              )}
-                              {grade.graded_at && (
-                                <span>
-                                  Baholangan:{" "}
-                                  {new Date(
-                                    grade.graded_at,
-                                  ).toLocaleDateString()}
-                                </span>
-                              )}
-                            </div>
+                        {item.feedback ? (
+                          <div className="grade-feedback">
+                            <MessageSquareText size={15} />
+                            <span>{item.feedback}</span>
                           </div>
+                        ) : (
+                          <p className="grade-no-feedback">
+                            Ustoz izoh qoldirmagan.
+                          </p>
+                        )}
 
-                          <div className="text-right">
-                            {grade.grade !== undefined &&
-                            grade.grade !== null ? (
-                              <div className="text-center">
-                                <div
-                                  className={`text-3xl font-bold ${getGradeColor(grade.grade)}`}
-                                >
-                                  {grade.grade}%
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {grade.grade >= 90
-                                    ? "A’lo"
-                                    : grade.grade >= 80
-                                      ? "Yaxshi"
-                                      : grade.grade >= 70
-                                        ? "Qoniqarli"
-                                        : "Yaxshilash kerak"}
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="text-center">
-                                <div className="text-2xl font-bold text-gray-400">
-                                  -
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  Baholanmagan
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+                        {item.graded_at && (
+                          <time dateTime={item.graded_at}>
+                            {new Date(item.graded_at).toLocaleDateString("uz-UZ", {
+                              day: "numeric",
+                              month: "long",
+                              year: "numeric",
+                              timeZone: "Asia/Tashkent",
+                            })}
+                          </time>
+                        )}
+                      </div>
+
+                      <ChevronRight className="grade-feed-arrow" size={19} />
+                    </Link>
+                  );
+                })}
+              </section>
+            )}
+          </>
+        )}
       </main>
     </ProtectedRoute>
   );

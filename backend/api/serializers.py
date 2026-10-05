@@ -37,13 +37,75 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'fullname', 'username', 'role', 'email', 'bio',
-            'student_id', 'phone_number', 'telegram_connected',
+            'student_id', 'group_code', 'phone_number', 'telegram_connected',
             'must_change_password',
         ]
         read_only_fields = [
-            'id', 'username', 'role', 'student_id', 'phone_number',
+            'id', 'username', 'role', 'student_id', 'group_code', 'phone_number',
             'telegram_connected', 'must_change_password',
         ]
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        min_length=8,
+        trim_whitespace=False,
+    )
+    role = serializers.ChoiceField(
+        choices=[('student', 'Talaba'), ('ustoz', 'Ustoz')],
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'fullname', 'username', 'role', 'email', 'student_id',
+            'group_code', 'phone_number', 'telegram_chat_id', 'is_active', 'must_change_password', 'password',
+        ]
+        read_only_fields = ['id', 'must_change_password']
+
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate_student_id(self, value):
+        if value is None:
+            return None
+        return value.strip() or None
+
+    def validate_telegram_chat_id(self, value):
+        if value is None:
+            return None
+        return value.strip() or None
+
+    def validate_group_code(self, value):
+        return (value or '').strip().upper()
+
+    def create(self, validated_data):
+        password = validated_data.pop('password', None)
+        if not password:
+            raise serializers.ValidationError({'password': 'Boshlang‘ich parolni kiriting.'})
+        return User.objects.create_user(
+            password=password,
+            must_change_password=True,
+            **validated_data,
+        )
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+        for key, value in validated_data.items():
+            setattr(instance, key, value)
+        if password:
+            instance.set_password(password)
+            instance.must_change_password = True
+            instance.temporary_password_expires_at = None
+        instance.save()
+        return instance
+
+
+class TelegramLinkSerializer(serializers.Serializer):
+    init_data = serializers.CharField(max_length=4096, trim_whitespace=False)
 
 
 class AccountRecoverySerializer(serializers.Serializer):
@@ -67,6 +129,9 @@ class CourseStudentSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     username = serializers.CharField()
     fullname = serializers.CharField(read_only=True)
+    student_id = serializers.CharField(read_only=True, allow_null=True)
+    group_code = serializers.CharField(read_only=True)
+    phone_number = serializers.CharField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
 
 
@@ -100,13 +165,35 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 class CourseSerializer(serializers.ModelSerializer):
+    teacher = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.filter(role='ustoz', is_active=True),
+        required=False,
+    )
     teacher_name = serializers.CharField(source='teacher.fullname', read_only=True)
     student_count = serializers.IntegerField(source='students.count', read_only=True)
 
     class Meta:
         model = Course
         fields = ['id', 'title', 'code', 'description', 'teacher', 'teacher_name', 'student_count', 'is_archived', 'created_at']
-        read_only_fields = ['teacher', 'created_at']
+        read_only_fields = ['created_at']
+
+    def validate(self, data):
+        data = super().validate(data)
+        request = self.context.get('request')
+        if not request:
+            return data
+        user = request.user
+        teacher = data.get('teacher')
+
+        if self.instance is None:
+            if is_admin(user):
+                if not teacher:
+                    raise serializers.ValidationError({'teacher': 'Ustozni tanlang.'})
+            else:
+                data['teacher'] = user
+        elif 'teacher' in data and not is_admin(user):
+            raise serializers.ValidationError({'teacher': 'Dars ustozini faqat administrator o‘zgartiradi.'})
+        return data
 
 
 class CourseScopedSerializer(serializers.ModelSerializer):
@@ -114,19 +201,19 @@ class CourseScopedSerializer(serializers.ModelSerializer):
 
     def validate_course(self, value):
         if value is None:
-            raise serializers.ValidationError('Kursni tanlang.')
+            raise serializers.ValidationError('Darsni tanlang.')
         user = self.context['request'].user
         if not is_admin(user) and value.teacher_id != user.pk:
-            raise serializers.ValidationError('Faqat o‘zingizning kursingizni tanlang.')
+            raise serializers.ValidationError('Faqat o‘zingizning darsingizni tanlang.')
         if self.instance and self.instance.course_id and self.instance.course_id != value.pk:
-            raise serializers.ValidationError('Mavjud yozuvni boshqa kursga ko‘chirish mumkin emas.')
+            raise serializers.ValidationError('Mavjud yozuvni boshqa darsga ko‘chirish mumkin emas.')
         if value.is_archived and not self.instance:
-            raise serializers.ValidationError('Arxivlangan kursga yangi yozuv qo‘shilmaydi.')
+            raise serializers.ValidationError('Arxivlangan darsga yangi yozuv qo‘shilmaydi.')
         return value
 
     def validate(self, data):
         if not self.instance and not data.get('course'):
-            raise serializers.ValidationError({'course': 'Kursni tanlang.'})
+            raise serializers.ValidationError({'course': 'Darsni tanlang.'})
         return data
 
     def validate_file(self, value):
@@ -187,7 +274,7 @@ class SubmissionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Submission
-        fields = ['id', 'assignment', 'student', 'student_name', 'student_username', 'file', 'submitted_at', 'grade', 'feedback', 'attempt', 'is_late']
+        fields = ['id', 'assignment', 'student', 'student_name', 'student_username', 'file', 'submitted_at', 'grade', 'graded_at', 'feedback', 'attempt', 'is_late']
         read_only_fields = ['assignment', 'student', 'submitted_at', 'grade', 'feedback', 'attempt']
 
 
@@ -209,7 +296,7 @@ class BookSerializer(CourseScopedSerializer):
 class CalendarEventSerializer(CourseScopedSerializer):
     class Meta:
         model = CalendarEvent
-        fields = ['id', 'course', 'course_title', 'title', 'description', 'event_type', 'start_time', 'end_time', 'created_by', 'created_at']
+        fields = ['id', 'course', 'course_title', 'title', 'description', 'event_type', 'start_time', 'end_time', 'room', 'period', 'for_group', 'created_by', 'created_at']
         read_only_fields = ['created_by', 'created_at']
 
     def validate(self, data):
@@ -226,20 +313,42 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
     session_topic = serializers.CharField(source='session.topic', read_only=True)
     starts_at = serializers.DateTimeField(source='session.starts_at', read_only=True)
     course_title = serializers.CharField(source='session.course.title', read_only=True)
+    presence_state = serializers.SerializerMethodField()
+
+    def get_presence_state(self, obj):
+        if obj.status in {'absent', 'excused'}:
+            return obj.status
+        seen_at = obj.last_seen_at or obj.checked_at
+        if not seen_at:
+            return 'unknown'
+        lesson_end = (
+            obj.session.calendar_event.end_time
+            if obj.session.calendar_event_id
+            else obj.session.starts_at + timedelta(minutes=70)
+        )
+        if timezone.now() >= lesson_end:
+            return 'finished'
+        if timezone.now() - seen_at > timedelta(minutes=5):
+            return 'stale'
+        return 'confirmed'
 
     class Meta:
         model = AttendanceRecord
         fields = [
             'id', 'student', 'student_name', 'status', 'note', 'session_topic',
-            'starts_at', 'course_title', 'source', 'checked_at', 'distance_m',
-            'location_accuracy_m',
+            'starts_at', 'course_title', 'source', 'checked_at', 'last_seen_at',
+            'presence_samples', 'presence_state', 'distance_m', 'location_accuracy_m',
         ]
-        read_only_fields = ['source', 'checked_at', 'distance_m', 'location_accuracy_m']
+        read_only_fields = [
+            'source', 'checked_at', 'last_seen_at', 'presence_samples',
+            'presence_state', 'distance_m', 'location_accuracy_m',
+        ]
 
 
 class AttendanceSessionSerializer(CourseScopedSerializer):
     check_in_ends_at = serializers.SerializerMethodField()
     late_after_at = serializers.SerializerMethodField()
+    lesson_ends_at = serializers.SerializerMethodField()
     student_count = serializers.SerializerMethodField()
 
     def get_check_in_ends_at(self, obj):
@@ -248,8 +357,20 @@ class AttendanceSessionSerializer(CourseScopedSerializer):
     def get_late_after_at(self, obj):
         return obj.starts_at + timedelta(minutes=obj.late_after_minutes)
 
+    def get_lesson_ends_at(self, obj):
+        if obj.calendar_event_id:
+            return obj.calendar_event.end_time
+        return obj.starts_at + timedelta(minutes=70)
+
     def get_student_count(self, obj):
-        return obj.course.students.filter(is_active=True).count()
+        queryset = obj.course.students.filter(is_active=True)
+        if obj.calendar_event_id:
+            raw = (obj.calendar_event.for_group or '').strip()
+            if raw and raw.lower() != 'all':
+                groups = [part.strip().upper() for part in raw.split(',') if part.strip()]
+                if groups and queryset.exclude(group_code='').exists():
+                    queryset = queryset.filter(group_code__in=groups)
+        return queryset.count()
 
     def validate(self, data):
         data = super().validate(data)
@@ -281,19 +402,33 @@ class AttendanceSessionSerializer(CourseScopedSerializer):
     class Meta:
         model = AttendanceSession
         fields = [
-            'id', 'course', 'course_title', 'starts_at', 'topic',
+            'id', 'calendar_event', 'course', 'course_title', 'starts_at', 'topic',
             'automated_checkin', 'attendance_minutes', 'late_after_minutes',
             'location_latitude', 'location_longitude', 'location_radius_m',
             'max_location_accuracy_m', 'ended_at', 'check_in_ends_at',
-            'late_after_at', 'student_count',
+            'late_after_at', 'lesson_ends_at', 'student_count',
         ]
-        read_only_fields = ['ended_at']
+        read_only_fields = ['ended_at', 'calendar_event']
 
 
 class AttendanceCheckInSerializer(serializers.Serializer):
     session = serializers.IntegerField(min_value=1)
     channel = serializers.ChoiceField(choices=['qr', 'ultrasound'])
     proof = serializers.CharField(max_length=700)
+    latitude = serializers.FloatField(min_value=-90, max_value=90)
+    longitude = serializers.FloatField(min_value=-180, max_value=180)
+    accuracy = serializers.FloatField(min_value=0, max_value=2000)
+
+
+class AttendanceManualMarkSerializer(serializers.Serializer):
+    student = serializers.IntegerField(min_value=1)
+    status = serializers.ChoiceField(choices=['present', 'late', 'absent', 'excused'])
+    note = serializers.CharField(max_length=250, required=False, allow_blank=True)
+
+
+class AttendancePresenceSerializer(serializers.Serializer):
+    session = serializers.IntegerField(min_value=1)
+    proof = serializers.CharField(max_length=100)
     latitude = serializers.FloatField(min_value=-90, max_value=90)
     longitude = serializers.FloatField(min_value=-180, max_value=180)
     accuracy = serializers.FloatField(min_value=0, max_value=2000)
