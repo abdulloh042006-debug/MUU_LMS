@@ -851,8 +851,8 @@ export default function Management() {
                                 : new Date().toISOString(),
                               automated_checkin: true,
                               attendance_minutes: Number(d.get("attendance_minutes")),
-                              location_latitude: position.coords.latitude,
-                              location_longitude: position.coords.longitude,
+                              location_latitude: Number(position.coords.latitude.toFixed(6)),
+                              location_longitude: Number(position.coords.longitude.toFixed(6)),
                               location_radius_m: 80,
                               max_location_accuracy_m: 100,
                             });
