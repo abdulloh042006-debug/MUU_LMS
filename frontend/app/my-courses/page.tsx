@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   CalendarDays,
   ChevronLeft,
@@ -252,16 +251,6 @@ export default function LessonsPage() {
           </div>
         </div>
 
-        {teacher && (
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-4">
-            <p className="text-sm text-muted-foreground">
-              Jadvaldagi dars faqat o‘z vaqtida boshlanadi. Hozir sinash uchun alohida davomat mashg‘ulotini oching.
-            </p>
-            <Button asChild variant="outline">
-              <Link href="/manage?tab=attendance">Hozir sinov davomatini boshlash</Link>
-            </Button>
-          </div>
-        )}
 
         {error && (
           <Alert variant="destructive" className="mb-5">

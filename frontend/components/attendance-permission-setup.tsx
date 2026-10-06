@@ -88,12 +88,11 @@ export function AttendancePermissionSetup() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck size={20} />
-            Davomat ruxsatlari
+            Davomat uchun ruxsatlar
           </DialogTitle>
           <DialogDescription>
-            Davomat uchun lokatsiya, kamera va mikrofon kerak. Bu LMS oynasi
-            ruxsatlarni faqat birinchi sozlashda so‘raydi; keyingi safar
-            qurilma saqlagan ruxsatlardan foydalanadi.
+            Auditoriyada ekaningizni tasdiqlash uchun joylashuv va kamera kerak.
+            Ruxsatni bir marta bersangiz, keyingi davomatlarda qayta so‘ralmaydi.
           </DialogDescription>
         </DialogHeader>
 
@@ -102,14 +101,18 @@ export function AttendancePermissionSetup() {
             <MapPin size={16} /> Lokatsiya — auditoriya hududini tekshirish
           </div>
           <div className="flex items-center gap-2">
-            <Camera size={16} /> Kamera — QR fallback
+            <Camera size={16} /> Kamera — davomat kodini skanerlash
           </div>
           <div className="flex items-center gap-2">
-            <Mic size={16} /> Mikrofon — ultrasound
+            <Mic size={16} /> Mikrofon — qo‘shimcha tekshiruv
           </div>
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            Ruxsat berilmadi — brauzer sozlamalaridan kamera va joylashuvni yoqing.
+          </p>
+        )}
 
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
