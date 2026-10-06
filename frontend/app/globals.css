@@ -1118,6 +1118,87 @@
 .mobile-sidebar > button {
   color: white;
 }
+
+/* Motion polish: subtle entrance, hover, and scroll-friendly transitions across the LMS. */
+@keyframes mu-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes mu-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes mu-soft-scale {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+.auth-layout,
+.portal { animation: mu-fade-in 0.55s ease both; }
+.auth-story-copy,
+.auth-form,
+.dashboard > *,
+.portal-surface > *,
+.portal-main > * {
+  animation: mu-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.auth-story-copy { animation-delay: 0.12s; }
+.auth-form { animation-delay: 0.08s; }
+.auth-features span { animation: mu-fade-up 0.55s ease both; }
+.auth-features span:nth-child(2) { animation-delay: 0.08s; }
+.auth-features span:nth-child(3) { animation-delay: 0.16s; }
+.auth-photo { animation: mu-soft-scale 1.2s ease both; }
+.auth-brand,
+.auth-story-footer,
+.auth-story-footer a,
+.auth-switch a,
+.mu-nav a,
+.university-link,
+.signout,
+button,
+[role="button"] {
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.22s ease, border-color 0.22s ease, color 0.22s ease, box-shadow 0.22s ease, opacity 0.22s ease;
+}
+button:hover:not(:disabled),
+[role="button"]:hover,
+.auth-story-footer a:hover,
+.auth-switch a:hover,
+.university-link:hover,
+.signout:hover { transform: translateY(-2px); }
+button:active:not(:disabled),
+[role="button"]:active { transform: translateY(0) scale(0.98); }
+.auth-submit:hover:not(:disabled),
+.gold-button:hover:not(:disabled) { box-shadow: 0 12px 24px #14223b24; }
+.auth-symbol {
+  animation: mu-soft-scale 0.6s 0.12s ease both;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.auth-symbol:hover { transform: translateY(-3px) rotate(-2deg); box-shadow: 0 12px 24px #c5a55a2b; }
+.auth-photo-shade { transition: opacity 0.5s ease; }
+.auth-story:hover .auth-photo-shade { opacity: 0.9; }
+.mu-nav a:hover { padding-left: 18px; }
+.card,
+.stat-card,
+.material-card,
+.panel,
+.dashboard-card,
+.table-card {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.card:hover,
+.stat-card:hover,
+.material-card:hover,
+.panel:hover,
+.dashboard-card:hover,
+.table-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px #14223b12; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @media (max-width: 1200px) {
   .mu-sidebar {
     width: 215px;
