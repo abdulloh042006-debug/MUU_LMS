@@ -64,9 +64,11 @@ Open http://localhost:3000. No API keys or remote tunnel are required. Local SQL
 
 ## Deployment
 
+A Render production Blueprint is provided in `render.yaml`; follow `DEPLOY_RENDER.md` before applying it or entering secrets.
+
 This is a Python + Node + PostgreSQL application; GitHub Pages alone cannot run its backend. Deploy Compose to a server that supports Docker, put HTTPS in front of port 3000, and set ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS to the real domain. DEBUG=0 and a private SECRET_KEY are required. With DEBUG=0 the refresh cookie is `Secure`, so production authentication requires HTTPS. Keep the database and backend off public ports. The HTTPS proxy must overwrite forwarded headers and prevent clients reaching the application directly.
 
-The source repository is on GitHub, but application hosting is separate and is not configured by this setup. Docker configuration is supplied; production Docker/PostgreSQL execution still needs environment-specific verification. After the HTTPS proxy works, set `SECURE_SSL_REDIRECT=1` and `SECURE_HSTS_SECONDS=31536000`; enable HSTS subdomains/preload only when every relevant subdomain is permanently HTTPS. Keep all four values at `0` for plain local HTTP.
+The source repository is on GitHub, but application hosting is separate. Docker and Render Blueprint configuration are supplied; production still needs environment-specific verification. For a deployment where the backend directly receives trusted HTTPS proxy headers, enable `SECURE_SSL_REDIRECT` and HSTS only after HTTPS works. For the supplied Render topology, keep these backend values at `0` because TLS terminates at the public frontend and backend traffic stays on the private network.
 
 ## Verification
 
