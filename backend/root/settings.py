@@ -1,23 +1,55 @@
 from datetime import timedelta
 from pathlib import Path
 import os
+from urllib.parse import parse_qs, unquote, urlparse
+
 from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get("SECRET_KEY", "local-development-only-change-before-deploy-123456789")
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+DEBUG = os.environ.get("DEBUG", "0" if IS_VERCEL else "1") == "1"
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    SECRET_KEY = "local-development-only-change-before-deploy-123456789" if DEBUG else ""
+if not DEBUG and (not SECRET_KEY or SECRET_KEY.startswith("local-development")):
+    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY for production")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", "1") == "1"
-if not DEBUG and SECRET_KEY.startswith("local-development"):
-    raise ImproperlyConfigured("Set SECRET_KEY for production")
-
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,backend,testserver").split(",")
-CSRF_TRUSTED_ORIGINS = [v for v in os.environ.get("CSRF_TRUSTED_ORIGINS", "http://localhost:3000").split(",") if v]
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get(
+        "ALLOWED_HOSTS", "localhost,127.0.0.1,backend,testserver"
+    ).split(",")
+    if host.strip()
+]
+DEPLOYMENT_HOSTS = set()
+for setting_name in (
+    "VERCEL_URL",
+    "VERCEL_PROJECT_PRODUCTION_URL",
+    "V0_RUNTIME_URL",
+):
+    value = os.environ.get(setting_name)
+    if value:
+        host = urlparse(value if "://" in value else f"//{value}").hostname
+        if host:
+            DEPLOYMENT_HOSTS.add(host)
+            if host not in ALLOWED_HOSTS:
+                ALLOWED_HOSTS.append(host)
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "CSRF_TRUSTED_ORIGINS", "http://localhost:3000"
+    ).split(",")
+    if origin.strip()
+]
+CSRF_TRUSTED_ORIGINS.extend(
+    origin for origin in (f"https://{host}" for host in DEPLOYMENT_HOSTS)
+    if origin not in CSRF_TRUSTED_ORIGINS
+)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
@@ -75,9 +107,60 @@ WSGI_APPLICATION = 'root.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": os.environ.get("SQLITE_PATH", str(BASE_DIR / "db.sqlite3"))}}
-if os.environ.get("DB_HOST"):
-    DATABASES = {"default": {"ENGINE": "django.db.backends.postgresql", "NAME": os.environ.get("DB_NAME", "lms"), "USER": os.environ.get("DB_USER", "lms"), "PASSWORD": os.environ["DB_PASSWORD"], "HOST": os.environ["DB_HOST"], "PORT": os.environ.get("DB_PORT", "5432")}}
+database_url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+if database_url:
+    parsed_database_url = urlparse(database_url)
+    if parsed_database_url.scheme not in {"postgres", "postgresql"}:
+        raise ImproperlyConfigured("DATABASE_URL must use the PostgreSQL scheme")
+    if not parsed_database_url.hostname or not parsed_database_url.path.strip("/"):
+        raise ImproperlyConfigured("DATABASE_URL must include a database name and host")
+    database_options = {
+        key: values[-1]
+        for key, values in parse_qs(parsed_database_url.query).items()
+        if key in {
+            "application_name",
+            "channel_binding",
+            "connect_timeout",
+            "options",
+            "sslmode",
+            "sslrootcert",
+            "target_session_attrs",
+        }
+    }
+    database_options.setdefault("sslmode", "require")
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": unquote(parsed_database_url.path.lstrip("/")),
+            "USER": unquote(parsed_database_url.username or ""),
+            "PASSWORD": unquote(parsed_database_url.password or ""),
+            "HOST": parsed_database_url.hostname,
+            "PORT": parsed_database_url.port or 5432,
+            "OPTIONS": database_options,
+            "CONN_MAX_AGE": 0 if IS_VERCEL else 60,
+            "CONN_HEALTH_CHECKS": True,
+        }
+    }
+elif os.environ.get("DB_HOST"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DB_NAME", "lms"),
+            "USER": os.environ.get("DB_USER", "lms"),
+            "PASSWORD": os.environ["DB_PASSWORD"],
+            "HOST": os.environ["DB_HOST"],
+            "PORT": os.environ.get("DB_PORT", "5432"),
+        }
+    }
+elif IS_VERCEL:
+    raise ImproperlyConfigured("Set DATABASE_URL to the connected PostgreSQL database")
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": os.environ.get("SQLITE_PATH", str(BASE_DIR / "db.sqlite3")),
+        }
+    }
 
 AUTH_USER_MODEL = 'api.User'
 
@@ -133,7 +216,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 STATIC_ROOT = os.path.join(BASE_DIR / 'static')
