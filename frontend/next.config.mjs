@@ -7,6 +7,7 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
   images: { unoptimized: true },
   async rewrites() {
+    if (process.env.VERCEL === "1") return []
     return ["api", "media", "admin", "static"].map(prefix => ({
       source: `/${prefix}/:path*`,
       destination: `${backend}/${prefix}/:path*${["api", "admin"].includes(prefix) ? "/" : ""}`,
