@@ -109,8 +109,8 @@ export function AttendancePermissionSetup() {
         </div>
 
         {error && (
-          <p role="alert" className="text-sm text-destructive">
-            Ruxsat berilmadi — brauzer sozlamalaridan kamera va joylashuvni yoqing.
+          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error} Brauzer sozlamalaridan kamera va joylashuvni yoqib, qayta urinib ko‘ring.
           </p>
         )}
 
