@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { Camera, MapPin, ShieldCheck } from "lucide-react";
+import { Camera, MapPin, Mic, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -120,6 +120,7 @@ export function AttendancePermissionSetup() {
           </Button>
         </div>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+    </>
   );
 }
