@@ -69,7 +69,7 @@ const freshLocation = () =>
   });
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <Label>{label}</Label>
       {children}
     </div>
@@ -271,7 +271,21 @@ export default function Management() {
             </p>
           )}
           {loading ? (
-            <p>Yuklanmoqda…</p>
+            <Card aria-busy="true">
+              <CardContent className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                Dars ma’lumotlari yuklanmoqda…
+              </CardContent>
+            </Card>
+          ) : !courses.length ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Darslar topilmadi</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
+                <p>Hozircha sizga biriktirilgan dars mavjud emas.</p>
+                {admin && <p>Yangi dars yaratish uchun administrator sifatida darslar bo‘limidan foydalaning.</p>}
+              </CardContent>
+            </Card>
           ) : (
             <>
               <div className="course-picker">
@@ -315,7 +329,7 @@ export default function Management() {
                       </CardHeader>
                       <CardContent>
                         <form
-                          className="space-y-4"
+                          className="flex flex-col gap-4"
                           onSubmit={submitForm((d) =>
                             api.createCourse(Object.fromEntries(d)),
                           )}
@@ -376,7 +390,7 @@ export default function Management() {
                           {course?.title || "Dars tanlanmagan"}
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-5">
+                      <CardContent className="flex flex-col gap-5">
                         {course && (
                           <>
                             <p>
@@ -499,7 +513,7 @@ export default function Management() {
                       </CardHeader>
                       <CardContent>
                         <form
-                          className="space-y-4"
+                          className="flex flex-col gap-4"
                           onSubmit={submitForm((d) =>
                             api.createBook(courseData(d)),
                           )}
@@ -591,7 +605,7 @@ export default function Management() {
                       <CardContent>
                         <form
                           key={editing?.id || "new"}
-                          className="space-y-4"
+                          className="flex flex-col gap-4"
                           onSubmit={submitForm(async (d) => {
                             if (editing) {
                               const data = {
@@ -755,7 +769,7 @@ export default function Management() {
                         Faqat baholanmaganlar
                       </label>
                     </CardHeader>
-                    <CardContent className="space-y-5">
+                    <CardContent className="flex flex-col gap-5">
                       {submissions
                         .filter(
                           (s) =>
@@ -840,7 +854,7 @@ export default function Management() {
                       </CardHeader>
                       <CardContent>
                         <form
-                          className="space-y-4"
+                          className="flex flex-col gap-4"
                           onSubmit={submitForm(async (d) => {
                             const position = await freshLocation();
                             return api.createAttendanceSession({
@@ -1013,7 +1027,7 @@ export default function Management() {
                       </CardHeader>
                       <CardContent>
                         <form
-                          className="space-y-4"
+                          className="flex flex-col gap-4"
                           onSubmit={submitForm((d) =>
                             api.createCalendarEvent({
                               course: selected,

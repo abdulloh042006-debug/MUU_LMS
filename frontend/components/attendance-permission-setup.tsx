@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Camera, MapPin, Mic, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -30,37 +31,29 @@ function requestLocation() {
 
 export function AttendancePermissionSetup() {
   const { user } = useAuth();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (
-      user?.role !== "student" ||
-      user?.must_change_password ||
-      typeof window === "undefined" ||
-      !window.isSecureContext
-    ) {
-      return;
-    }
-    if (window.localStorage.getItem(STORAGE_KEY) !== "granted") {
-      setOpen(true);
-    }
-  }, [user]);
+  function openPermissionDialog() {
+    setError("");
+    setOpen(true);
+  }
 
   async function enablePermissions() {
     setBusy(true);
     setError("");
     let stream: MediaStream | null = null;
     try {
-      await requestLocation();
       if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("Kamera/mikrofon ruxsatlari bu brauzerda mavjud emas.");
+        throw new Error("Kamera ruxsati bu brauzerda mavjud emas.");
       }
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: false,
         video: { facingMode: { ideal: "environment" } },
       });
+      await requestLocation();
       stream.getTracks().forEach((track) => track.stop());
       window.localStorage.setItem(STORAGE_KEY, "granted");
       setOpen(false);
@@ -79,17 +72,27 @@ export function AttendancePermissionSetup() {
   if (user?.role !== "student" || user?.must_change_password) return null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
+      {pathname === "/attendance" && (
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto px-0 text-sm"
+          onClick={openPermissionDialog}
+        >
+          Davomat ruxsatlarini sozlash
+        </Button>
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldCheck size={20} />
-            Davomat ruxsatlari
+            Davomat uchun ruxsatlar
           </DialogTitle>
           <DialogDescription>
-            Davomat uchun lokatsiya, kamera va mikrofon kerak. Bu LMS oynasi
-            ruxsatlarni faqat birinchi sozlashda so‘raydi; keyingi safar
-            qurilma saqlagan ruxsatlardan foydalanadi.
+            Auditoriyada ekaningizni tasdiqlash uchun joylashuv va kamera kerak.
+            Ruxsatni bir marta bersangiz, keyingi davomatlarda qayta so‘ralmaydi.
           </DialogDescription>
         </DialogHeader>
 
@@ -98,14 +101,18 @@ export function AttendancePermissionSetup() {
             <MapPin size={16} /> Lokatsiya — auditoriya hududini tekshirish
           </div>
           <div className="flex items-center gap-2">
-            <Camera size={16} /> Kamera — QR fallback
+            <Camera size={16} /> Kamera — davomat kodini skanerlash
           </div>
           <div className="flex items-center gap-2">
-            <Mic size={16} /> Mikrofon — ultrasound
+            <Mic size={16} /> Mikrofon — qo‘shimcha tekshiruv
           </div>
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error} Brauzer sozlamalaridan kamera va joylashuvni yoqib, qayta urinib ko‘ring.
+          </p>
+        )}
 
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
@@ -116,6 +123,7 @@ export function AttendancePermissionSetup() {
           </Button>
         </div>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+    </>
   );
 }

@@ -113,21 +113,26 @@ export function PortalShell({ children }: { children: ReactNode }) {
         {admin ? "ADMIN KABINETI" : teacher ? "USTOZ KABINETI" : "TALABA KABINETI"}
       </div>
       <nav aria-label="Asosiy menyu" className="mu-nav">
-        {menuLinks.map(({ href, label, icon: Icon, id }) => (
-          <Link
-            key={href}
-            href={demo ? `/preview#${id}` : href}
-            className={
-              path === href || (demo && href === "/dashboard") ? "active" : ""
-            }
-            aria-current={path === href ? "page" : undefined}
-            onClick={() => setOpen(false)}
-          >
-            <Icon size={19} />
-            <span>{label}</span>
-            {href === "/dashboard" && <span className="nav-dot" />}
-          </Link>
-        ))}
+        {menuLinks.map(({ href, label, icon: Icon, id }) => {
+          const isActive =
+            path === href ||
+            path.startsWith(`${href}/`) ||
+            (demo && href === "/dashboard");
+
+          return (
+            <Link
+              key={href}
+              href={demo ? `/preview#${id}` : href}
+              className={isActive ? "active" : ""}
+              aria-current={isActive ? "page" : undefined}
+              onClick={() => setOpen(false)}
+            >
+              <Icon size={19} />
+              <span>{label}</span>
+              {href === "/dashboard" && <span className="nav-dot" />}
+            </Link>
+          );
+        })}
       </nav>
       <div className="sidebar-bottom">
         <div className="education-mark">
