@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
@@ -30,7 +30,7 @@ class LoginSerializer(serializers.Serializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     telegram_connected = serializers.SerializerMethodField()
 
-    def get_telegram_connected(self, obj):
+    def get_telegram_connected(self, obj) -> bool:
         return bool(obj.telegram_chat_id)
 
     class Meta:
@@ -315,7 +315,7 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
     course_title = serializers.CharField(source='session.course.title', read_only=True)
     presence_state = serializers.SerializerMethodField()
 
-    def get_presence_state(self, obj):
+    def get_presence_state(self, obj) -> str:
         if obj.status in {'absent', 'excused'}:
             return obj.status
         seen_at = obj.last_seen_at or obj.checked_at
@@ -351,18 +351,18 @@ class AttendanceSessionSerializer(CourseScopedSerializer):
     lesson_ends_at = serializers.SerializerMethodField()
     student_count = serializers.SerializerMethodField()
 
-    def get_check_in_ends_at(self, obj):
+    def get_check_in_ends_at(self, obj) -> datetime:
         return obj.starts_at + timedelta(minutes=obj.attendance_minutes)
 
-    def get_late_after_at(self, obj):
+    def get_late_after_at(self, obj) -> datetime:
         return obj.starts_at + timedelta(minutes=obj.late_after_minutes)
 
-    def get_lesson_ends_at(self, obj):
+    def get_lesson_ends_at(self, obj) -> datetime:
         if obj.calendar_event_id:
             return obj.calendar_event.end_time
         return obj.starts_at + timedelta(minutes=70)
 
-    def get_student_count(self, obj):
+    def get_student_count(self, obj) -> int:
         queryset = obj.course.students.filter(is_active=True)
         if obj.calendar_event_id:
             raw = (obj.calendar_event.for_group or '').strip()
