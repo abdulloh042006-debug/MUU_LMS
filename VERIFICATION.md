@@ -1,5 +1,6 @@
 # Verification — 2026-10-05
 
+- Final production audit on 2026-10-06: Python dependency integrity, Django system/migration/OpenAPI checks and the full 37-test suite passed; ESLint with zero warnings, TypeScript, and the Next.js production build passed with all 18 routes generated. Secure production settings passed `check --deploy`; Compose configuration, diff checks and tracked-environment review passed. No production secret file is tracked.
 - OpenAPI schema now declares the custom LMS JWT bearer authentication and typed computed profile/attendance fields. `manage.py spectacular --validate` completed without schema warnings; Django checks, migration drift check and the full 36-test suite passed on 2026-10-06.
 - Production HTTPS controls are environment-configurable without breaking plain local HTTP. With SSL redirect and one-year HSTS enabled, `manage.py check --deploy` reported no issues; normal system check, `docker compose config --quiet` and `git diff --check` also passed.
 - `/api/health/` now executes a database readiness query and returns HTTP 503 when the database is unavailable; the Compose backend healthcheck uses this endpoint. The healthy/unhealthy regression test, system check, Compose config validation and diff check passed.
@@ -35,7 +36,7 @@
 
 ## Not verified
 
-- Docker engine was stopped on the Windows device; actual container startup, PostgreSQL concurrency and reverse-proxy HTTPS behavior remain unverified.
+- Docker Desktop startup was retried on the Windows device. Its missing `ProgramData` environment was corrected, but WSL then failed to attach `D:\DockerData\wsl\disk\docker_data.vhdx` with `HCS/E_ACCESSDENIED`. No VHD/ACL or administrator-level system change was forced. Actual container startup and PostgreSQL concurrency therefore remain unverified.
 - Browser QA covered the core role workflows, a confirmation modal and 390 px mobile navigation; exhaustive control-by-control walkthrough and physical-device location, camera and ultrasound checks remain.
 - Cloud hosting is not configured. Current source changes remain uncommitted in the local `main` working tree and need coordinated review before push.
 
