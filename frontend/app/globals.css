@@ -887,10 +887,10 @@
   letter-spacing: -0.6px;
 }
 .auth-layout {
-  min-height: 100vh;
+  min-height: 100svh;
   display: grid;
-  grid-template-columns: 1.05fr 1fr;
-  background: #fff;
+  grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
+  background: #f8f7f3;
 }
 .auth-story {
   position: relative;
@@ -989,11 +989,12 @@
   color: #d9bf87;
 }
 .auth-form-side {
-  padding: 50px 35px;
+  padding: clamp(32px, 6vw, 72px) clamp(24px, 7vw, 92px);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
+  background: #f8f7f3;
 }
 .auth-form {
   width: 100%;
@@ -1015,9 +1016,11 @@
   margin-bottom: 12px;
 }
 .auth-form h2 {
-  font-size: 30px;
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1.15;
   font-weight: 600;
-  letter-spacing: -1px;
+  letter-spacing: -1.2px;
+  color: #14223b;
 }
 .auth-intro {
   font-size: 12px;
@@ -1030,12 +1033,17 @@
   font-weight: 500;
 }
 .auth-form input {
-  border-radius: 7px;
-  height: 46px;
-  border-color: #e2e1db;
+  border-radius: 10px;
+  height: 50px;
+  border-color: #deddd7;
   background: #fff;
-  font-size: 12px;
-  padding: 0 14px;
+  font-size: 14px;
+  padding: 0 15px;
+  box-shadow: 0 1px 2px #18243b08;
+}
+.auth-form input:focus {
+  border-color: #b59651;
+  box-shadow: 0 0 0 4px #c5a55a1f;
 }
 .auth-form input::placeholder {
   color: #b0b2ba;
