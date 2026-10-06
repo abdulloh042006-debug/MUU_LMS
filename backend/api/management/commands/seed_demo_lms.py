@@ -20,7 +20,31 @@ from api.models import (
 class Command(BaseCommand):
     help = "Create connected local demo data for MU LMS development."
 
+    DEMO_PASSWORDS = {
+        "admin_demo": "AdminDemo!2026",
+        "ustoz_demo": "UstozDemo!2026",
+        "talaba_demo": "TalabaDemo!2026",
+    }
+
     def handle(self, *args, **options):
+        admin, _ = User.objects.get_or_create(
+            username="admin_demo",
+            defaults={
+                "fullname": "Demo Administrator",
+                "role": "admin",
+                "email": "admin@demo.local",
+                "is_staff": True,
+                "is_superuser": True,
+            },
+        )
+        admin.fullname = "Demo Administrator"
+        admin.role = "admin"
+        admin.is_active = True
+        admin.is_staff = True
+        admin.is_superuser = True
+        admin.set_password(self.DEMO_PASSWORDS["admin_demo"])
+        admin.save()
+
         teacher, _ = User.objects.get_or_create(
             username="ustoz_demo",
             defaults={
@@ -32,7 +56,8 @@ class Command(BaseCommand):
         teacher.fullname = "Demo Ustoz"
         teacher.role = "ustoz"
         teacher.is_active = True
-        teacher.save(update_fields=["fullname", "role", "is_active"])
+        teacher.set_password(self.DEMO_PASSWORDS["ustoz_demo"])
+        teacher.save()
 
         names = [
             ("talaba_demo", "Demo Talaba"),
@@ -77,7 +102,9 @@ class Command(BaseCommand):
             user.student_id = f"IT10226-{index:03d}"
             user.group_code = "IT102-26"
             user.phone_number = f"+998 90 700 {index:02d} {index:02d}"
-            if created:
+            if username == "talaba_demo":
+                user.set_password(self.DEMO_PASSWORDS["talaba_demo"])
+            elif created:
                 user.set_unusable_password()
             user.save()
             students.append(user)
