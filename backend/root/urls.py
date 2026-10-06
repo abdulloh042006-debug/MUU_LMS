@@ -1,14 +1,14 @@
 from django.contrib import admin
 from api.views import ProtectedMediaAPIView
-from django.http import JsonResponse
 from django.urls import path, include
+from .views import health
 from django.conf.urls.static import static
 from .settings import STATIC_URL, STATIC_ROOT, MEDIA_URL, MEDIA_ROOT
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 urlpatterns = [
     path('media/<path:name>', ProtectedMediaAPIView.as_view()),
     path('admin/', admin.site.urls),
-    path('api/health/', lambda request: JsonResponse({'status': 'ok'})),
+    path('api/health/', health),
     path('api/', include('api.urls'))
 ]
 

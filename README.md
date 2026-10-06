@@ -31,7 +31,7 @@ Requires Docker with Compose. The separate `attendance_worker` service closes sc
 4. Open http://localhost:3000/admin/ and sign in with the administrator account. Create student/teacher accounts there, including student ID, phone and Telegram chat ID when account recovery is required. Assign trusted users the `ustoz` role.
 5. Teachers then use `/manage` to create courses and add admin-provisioned students by username. The admin uses a separate session login.
 
-The database and uploaded files survive container recreation. Do not run `docker compose down -v` unless you intend to delete stored data.
+The database and uploaded files survive container recreation. The backend container readiness probe calls `/api/health/`, which verifies a live database query before reporting healthy. Do not run `docker compose down -v` unless you intend to delete stored data.
 
 ## Local development (without Docker)
 

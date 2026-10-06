@@ -1,7 +1,7 @@
 import tempfile
 from unittest.mock import patch
 from datetime import timedelta
-from django.db import connection
+from django.db import DatabaseError, connection
 from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -27,6 +27,16 @@ class IntegrationTests(APITestCase):
 
     def authenticate(self, user=None):
         self.client.force_authenticate(user or self.student)
+
+    def test_health_checks_database_readiness(self):
+        response = self.client.get('/api/health/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'status': 'ok', 'database': 'ok'})
+
+        with patch('root.views.connection.cursor', side_effect=DatabaseError('database unavailable')):
+            response = self.client.get('/api/health/')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {'status': 'unhealthy', 'database': 'unavailable'})
 
     def test_notification_model_defaults_and_ordering(self):
         first=Notification.objects.create(user=self.student,type='assignment',title='Birinchi',message='Yangi topshiriq',link='/assignments/1')
