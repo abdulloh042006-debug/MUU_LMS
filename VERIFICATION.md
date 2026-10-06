@@ -1,6 +1,7 @@
 # Verification — 2026-10-05
 
 - OpenAPI schema now declares the custom LMS JWT bearer authentication and typed computed profile/attendance fields. `manage.py spectacular --validate` completed without schema warnings; Django checks, migration drift check and the full 36-test suite passed on 2026-10-06.
+- Production HTTPS controls are environment-configurable without breaking plain local HTTP. With SSL redirect and one-year HSTS enabled, `manage.py check --deploy` reported no issues; normal system check, `docker compose config --quiet` and `git diff --check` also passed.
 - Django 5.2.17 integration suite: 36 tests passed after authentication, password-management, security/business-logic, notification, lesson-schedule, automated-attendance and administrator-management changes.
 - Authentication tests cover disabled public registration, admin-only user provisioning UI, invalid/inactive login, `HttpOnly` + `SameSite=Strict` refresh cookies, refresh-token rotation, blacklist-backed logout, authenticated password change, Telegram-backed phone + student-ID recovery, mandatory replacement of temporary passwords, and immediate JWT revocation after the stored password hash changes.
 - `rest_framework_simplejwt.token_blacklist` is enabled; the test database applied its migrations. `makemigrations --check --dry-run`: no project model changes detected.
