@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Camera, MapPin, Mic, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { Camera, MapPin, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,37 +31,29 @@ function requestLocation() {
 
 export function AttendancePermissionSetup() {
   const { user } = useAuth();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (
-      user?.role !== "student" ||
-      user?.must_change_password ||
-      typeof window === "undefined" ||
-      !window.isSecureContext
-    ) {
-      return;
-    }
-    if (window.localStorage.getItem(STORAGE_KEY) !== "granted") {
-      setOpen(true);
-    }
-  }, [user]);
+  function openPermissionDialog() {
+    setError("");
+    setOpen(true);
+  }
 
   async function enablePermissions() {
     setBusy(true);
     setError("");
     let stream: MediaStream | null = null;
     try {
-      await requestLocation();
       if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("Kamera/mikrofon ruxsatlari bu brauzerda mavjud emas.");
+        throw new Error("Kamera ruxsati bu brauzerda mavjud emas.");
       }
       stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
+        audio: false,
         video: { facingMode: { ideal: "environment" } },
       });
+      await requestLocation();
       stream.getTracks().forEach((track) => track.stop());
       window.localStorage.setItem(STORAGE_KEY, "granted");
       setOpen(false);
@@ -79,7 +72,18 @@ export function AttendancePermissionSetup() {
   if (user?.role !== "student" || user?.must_change_password) return null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
+      {pathname === "/attendance" && (
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto px-0 text-sm"
+          onClick={openPermissionDialog}
+        >
+          Davomat ruxsatlarini sozlash
+        </Button>
+      )}
+      <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
