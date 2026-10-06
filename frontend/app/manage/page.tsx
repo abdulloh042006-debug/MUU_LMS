@@ -276,18 +276,16 @@ export default function Management() {
                 Dars ma’lumotlari yuklanmoqda…
               </CardContent>
             </Card>
-          ) : !courses.length ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Darslar topilmadi</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
-                <p>Hozircha sizga biriktirilgan dars mavjud emas.</p>
-                {admin && <p>Yangi dars yaratish uchun administrator sifatida darslar bo‘limidan foydalaning.</p>}
-              </CardContent>
-            </Card>
           ) : (
             <>
+              {!courses.length && (
+                <Alert className="mb-5">
+                  <AlertDescription>
+                    Hozircha dars yo‘q. Birinchi darsni “Dars va talabalar”
+                    bo‘limidagi formadan yarating.
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="course-picker">
                 <Label htmlFor="course-scope">Ishlayotgan darsingiz</Label>
                 <select
@@ -375,6 +373,11 @@ export default function Management() {
                                   </option>
                                 ))}
                               </select>
+                              {!teachers.length && (
+                                <p className="text-sm text-muted-foreground">
+                                  Avval Admin boshqaruvi bo‘limida faol ustoz hisobini yarating.
+                                </p>
+                              )}
                             </Field>
                           )}
                           <Button disabled={busy || (admin && !teachers.length)}>
@@ -391,6 +394,12 @@ export default function Management() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="flex flex-col gap-5">
+                        {!course && (
+                          <p className="text-sm text-muted-foreground">
+                            Dars yaratilgach, uning tafsilotlari va talabalar shu
+                            yerda boshqariladi.
+                          </p>
+                        )}
                         {course && (
                           <>
                             <p>

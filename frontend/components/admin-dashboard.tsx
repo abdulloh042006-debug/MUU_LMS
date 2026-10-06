@@ -22,6 +22,16 @@ import {
 } from "@/lib/api-service";
 import { ProtectedRoute } from "@/components/protected-route";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -75,6 +85,7 @@ export function AdminDashboard() {
   const [busy, setBusy] = useState<number | "create" | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [confirmUser, setConfirmUser] = useState<AdminUser | null>(null);
 
   const load = useCallback(async () => {
     const [statsData, userRows] = await Promise.all([
@@ -266,6 +277,7 @@ export function AdminDashboard() {
                       <div className="relative">
                         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
+                          aria-label="Foydalanuvchilarni qidirish"
                           value={query}
                           onChange={(e) => setQuery(e.target.value)}
                           placeholder="Ism, login yoki ID..."
@@ -312,8 +324,13 @@ export function AdminDashboard() {
                         type="button"
                         size="sm"
                         variant={item.is_active ? "outline" : "default"}
-                        disabled={busy === item.id}
-                        onClick={() => void toggleActive(item)}
+                        aria-label={`${item.is_active ? "Hisobni o‘chirish" : "Hisobni faollashtirish"}: ${item.fullname}`}
+                        disabled={busy !== null}
+                        onClick={() =>
+                          item.is_active
+                            ? setConfirmUser(item)
+                            : void toggleActive(item)
+                        }
                       >
                         {item.is_active ? "O‘chirish" : "Faollashtirish"}
                       </Button>
@@ -377,7 +394,7 @@ export function AdminDashboard() {
                         Foydalanuvchi birinchi kirishda bu parolni almashtiradi.
                       </p>
                     </div>
-                    <Button type="submit" className="w-full" disabled={busy === "create"}>
+                    <Button type="submit" className="w-full" disabled={busy !== null}>
                       <UserPlus size={16} />
                       {busy === "create" ? "Yaratilmoqda…" : "Hisob yaratish"}
                     </Button>
@@ -385,6 +402,35 @@ export function AdminDashboard() {
                 </CardContent>
               </Card>
             </div>
+            <AlertDialog
+              open={!!confirmUser}
+              onOpenChange={(open) => !open && setConfirmUser(null)}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {confirmUser?.fullname} hisobi vaqtincha o‘chirilsinmi?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Foydalanuvchi tizimga kira olmaydi, ammo uning dars va o‘quv
+                    ma’lumotlari saqlanadi. Istalgan vaqtda hisobni qayta
+                    faollashtirishingiz mumkin.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Bekor qilish</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => {
+                      if (confirmUser) void toggleActive(confirmUser);
+                      setConfirmUser(null);
+                    }}
+                  >
+                    Hisobni o‘chirish
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
       </main>

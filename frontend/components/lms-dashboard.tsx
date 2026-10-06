@@ -274,7 +274,7 @@ export function LMSDashboard({ demo = false }: { demo?: boolean }) {
       )}
 
       <section className="student-focus-grid" aria-label="Bugungi muhim ishlar">
-        <article className="student-focus-card">
+        <article className="student-focus-card" id="schedule">
           <div className="student-focus-icon">
             <CalendarDays size={21} />
           </div>
@@ -375,8 +375,9 @@ export function LMSDashboard({ demo = false }: { demo?: boolean }) {
           </div>
         </Link>
         <Link
+          id="attendance"
           className="stat-card stat-card-link"
-          href={demo ? "#overview" : "/attendance"}
+          href={demo ? "#attendance" : "/attendance"}
         >
           <div className="stat-icon navy">
             <UserCheck size={21} />
@@ -489,7 +490,7 @@ export function LMSDashboard({ demo = false }: { demo?: boolean }) {
           )}
         </section>
 
-        <section className="panel results-panel">
+        <section className="panel results-panel" id="results">
           <div className="section-heading">
             <div>
               <h2>So‘nggi baholar</h2>
