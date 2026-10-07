@@ -420,6 +420,18 @@ class AttendanceCheckInSerializer(serializers.Serializer):
     accuracy = serializers.FloatField(min_value=0, max_value=2000)
 
 
+class AttendanceClientFailureReportSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=[
+        'camera_denied', 'camera_dismissed', 'camera_no_device',
+        'camera_insecure', 'camera_unsupported', 'camera_error',
+        'ultrasound_unsupported', 'ultrasound_insecure',
+        'ultrasound_low_volume', 'ultrasound_noise', 'ultrasound_timeout',
+        'microphone_denied', 'microphone_no_device', 'microphone_error',
+    ])
+    browser = serializers.ChoiceField(choices=['Chrome', 'Safari', 'Samsung', 'Edge', 'Firefox', 'Other'])
+    os = serializers.ChoiceField(choices=['Android', 'iOS', 'Windows', 'macOS', 'Linux', 'Other'])
+
+
 class AttendanceManualMarkSerializer(serializers.Serializer):
     student = serializers.IntegerField(min_value=1)
     status = serializers.ChoiceField(choices=['present', 'late', 'absent', 'excused'])

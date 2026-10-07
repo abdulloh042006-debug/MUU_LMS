@@ -33,7 +33,8 @@ from .access import TeacherOnly, AdminOnly, courses_for, scoped, is_admin, is_te
 from .models import User, Course, Assignment, Submission, Book, CalendarEvent, AttendanceSession, AttendanceRecord, Notification
 from .serializers import (LoginSerializer, UserProfileSerializer, AdminUserSerializer, ChangePasswordSerializer, AccountRecoverySerializer, CourseSerializer, AssignmentSerializer,
     SubmissionSerializer, GradeSerializer, BookSerializer, CalendarEventSerializer, AttendanceSessionSerializer, AttendanceRecordSerializer, NotificationSerializer,
-    CourseStudentSerializer, EmptySerializer, AttendanceCheckInSerializer, AttendanceManualMarkSerializer, AttendancePresenceSerializer, TelegramLinkSerializer)
+    CourseStudentSerializer, EmptySerializer, AttendanceCheckInSerializer, AttendanceClientFailureReportSerializer,
+    AttendanceManualMarkSerializer, AttendancePresenceSerializer, TelegramLinkSerializer)
 
 
 
@@ -1068,6 +1069,13 @@ class AttendanceCheckInAPIView(generics.GenericAPIView):
     def post(self, request):
         if request.user.role != 'student':
             raise PermissionDenied('Avtomatik davomatni faqat talaba tasdiqlaydi.')
+        if set(request.data.keys()) == {'reason', 'browser', 'os'}:
+            report = AttendanceClientFailureReportSerializer(data=request.data)
+            report.is_valid(raise_exception=True)
+            if not consume_attempts(request.user.pk, 0):
+                raise AttendanceError('rate_limited', 429)
+            log_failure(request, **report.validated_data)
+            return Response({'reported': True}, status=status.HTTP_202_ACCEPTED)
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
             raise AttendanceError('code_invalid')

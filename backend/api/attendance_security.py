@@ -70,8 +70,8 @@ def consume_attempts(user_id, session_id):
         return allowed
 
 
-def log_failure(request, code):
+def log_failure(request, code, browser=None, os=None):
     agent = request.META.get('HTTP_USER_AGENT', '')[:512]
-    browser = next((name for token, name in [('SamsungBrowser', 'Samsung'), ('Edg/', 'Edge'), ('Firefox', 'Firefox'), ('Chrome', 'Chrome'), ('Safari', 'Safari')] if token in agent), 'Other')
-    os = next((name for token, name in [('Android', 'Android'), ('iPhone', 'iOS'), ('iPad', 'iOS'), ('Windows', 'Windows'), ('Macintosh', 'macOS'), ('Linux', 'Linux')] if token in agent), 'Other')
+    browser = browser or next((name for token, name in [('SamsungBrowser', 'Samsung'), ('Edg/', 'Edge'), ('Firefox', 'Firefox'), ('Chrome', 'Chrome'), ('Safari', 'Safari')] if token in agent), 'Other')
+    os = os or next((name for token, name in [('Android', 'Android'), ('iPhone', 'iOS'), ('iPad', 'iOS'), ('Windows', 'Windows'), ('Macintosh', 'macOS'), ('Linux', 'Linux')] if token in agent), 'Other')
     logging.getLogger('api.attendance').info('attendance_failure reason=%s browser=%s os=%s', code, browser, os)

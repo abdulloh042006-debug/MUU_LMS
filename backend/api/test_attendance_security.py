@@ -121,3 +121,25 @@ class AttendanceSecurityTests(APITestCase):
         response = self.client.get(f'/api/attendance/{self.session.pk}/challenge/')
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(len(response.data['manual_code']), 8)
+
+    def test_client_failure_report_logs_only_reason_browser_and_os(self):
+        with self.assertLogs('api.attendance', level='INFO') as logs:
+            response = self.client.post(
+                '/api/attendance/check-in/',
+                {'reason': 'camera_denied', 'browser': 'Chrome', 'os': 'Android'},
+                format='json',
+            )
+        self.assertEqual(response.status_code, 202, response.data)
+        self.assertEqual(response.data, {'reported': True})
+        self.assertEqual(
+            logs.records[0].getMessage(),
+            'attendance_failure reason=camera_denied browser=Chrome os=Android',
+        )
+
+    def test_client_failure_report_rejects_unapproved_reason(self):
+        response = self.client.post(
+            '/api/attendance/check-in/',
+            {'reason': 'private-detail', 'browser': 'Chrome', 'os': 'Android'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400)
