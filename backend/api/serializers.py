@@ -413,7 +413,7 @@ class AttendanceSessionSerializer(CourseScopedSerializer):
 
 class AttendanceCheckInSerializer(serializers.Serializer):
     session = serializers.IntegerField(min_value=1)
-    channel = serializers.ChoiceField(choices=['qr', 'ultrasound'])
+    channel = serializers.ChoiceField(choices=['qr', 'ultrasound', 'manual_code'])
     proof = serializers.CharField(max_length=700)
     latitude = serializers.FloatField(min_value=-90, max_value=90)
     longitude = serializers.FloatField(min_value=-180, max_value=180)
