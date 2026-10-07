@@ -249,7 +249,8 @@ export const getLessonAttendance = (eventId: number) =>
 export const startLessonAttendance = (
   eventId: number,
   location: { latitude: number; longitude: number },
-) => fetchAPI(`/lessons/${eventId}/attendance/`, post(location));
+  testMode = false,
+) => fetchAPI(`/lessons/${eventId}/attendance/`, post({ ...location, test_mode: testMode }));
 export const getAttendanceSessions = () => fetchAPI("/attendance/");
 export const createAttendanceSession = (data: any) =>
   fetchAPI("/attendance/", post(data));
