@@ -502,7 +502,7 @@ export function AttendanceCheckIn({
                     disabled={busySession !== null}
                     onClick={() => setManualQrOpen(true)}
                   >
-                    QR matnini kiritish
+                    QR fallback (debug)
                   </Button>
                   <Button
                     type="button"
@@ -545,7 +545,7 @@ export function AttendanceCheckIn({
       </div>
 
       <Dialog open={scannerOpen} onOpenChange={setScannerOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-xl overflow-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Davomat QR skaneri</DialogTitle>
             <DialogDescription>
@@ -560,7 +560,7 @@ export function AttendanceCheckIn({
               muted
             />
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className="relative size-[min(72vw,18rem)] rounded-2xl border-4 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.38)]">
+              <div className="relative aspect-square w-[min(68vw,18rem)] max-w-[calc(100%-2rem)] rounded-2xl border-4 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.38)]">
                 <span className="absolute -top-1 -left-1 size-8 border-t-4 border-l-4 border-primary" />
                 <span className="absolute -top-1 -right-1 size-8 border-t-4 border-r-4 border-primary" />
                 <span className="absolute -bottom-1 -left-1 size-8 border-b-4 border-l-4 border-primary" />
@@ -580,14 +580,14 @@ export function AttendanceCheckIn({
           <DialogHeader>
             <DialogTitle>QR matnini qo‘lda kiritish</DialogTitle>
             <DialogDescription>
-              Kamera ishlamasa, QR koddan olingan JSON matnni shu yerga kiriting.
+              Faqat texnik test uchun QR kodning JSON matnini kiriting.
             </DialogDescription>
           </DialogHeader>
           <Input
             value={manualQrValue}
             onChange={(event) => setManualQrValue(event.target.value)}
             placeholder='{"v":1,"session":123,"proof":"..."}'
-            aria-label="QR kodi matni"
+            aria-label="QR kodi JSON matni"
           />
           <Button type="button" onClick={() => void submitManualQr()}>
             Davomatni tasdiqlash

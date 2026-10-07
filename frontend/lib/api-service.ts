@@ -62,13 +62,26 @@ async function fetchAPI(
     endpoint === "/health/";
   if (accessToken && !publicRequest)
     headers.set("Authorization", `Bearer ${accessToken}`);
-  const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-    credentials: "same-origin",
-    cache: "no-store",
-    signal: AbortSignal.timeout(config.API_TIMEOUT),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: AbortSignal.timeout(config.API_TIMEOUT),
+    });
+  } catch (error) {
+    if (retry) {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      return fetchAPI(endpoint, options, false);
+    }
+    throw error;
+  }
+  if (response.status >= 500 && response.status < 600 && retry) {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    return fetchAPI(endpoint, options, false);
+  }
   if (response.status === 401 && !publicRequest && retry) {
     await refreshToken();
     return fetchAPI(endpoint, options, false);
