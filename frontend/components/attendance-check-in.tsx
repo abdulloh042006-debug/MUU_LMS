@@ -481,7 +481,7 @@ export function AttendanceCheckIn({
                     onClick={() => void listenUltrasound(session)}
                   >
                     <Radio size={16} />
-                    {busySession === session.id ? "Tinglanmoqda…" : "Ultrasound sinash"}
+                    {busySession === session.id ? "Tinglanmoqda…" : "Ultrasound"}
                   </Button>
                 </div>
               </div>
@@ -508,7 +508,7 @@ export function AttendanceCheckIn({
           </div>
         )}
         {error && (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+          <div role="alert" className="w-full min-w-0 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm leading-6 text-destructive">
             {error}
           </div>
         )}
