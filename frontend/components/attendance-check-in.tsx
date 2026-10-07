@@ -81,7 +81,6 @@ export function AttendanceCheckIn({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanTimerRef = useRef<number | null>(null);
-  const zoomTimerRef = useRef<number | null>(null);
   const autoUltrasoundTriedRef = useRef<Set<number>>(new Set());
   const ultrasoundListenerRef = useRef<
     (session: ActiveSession, silent?: boolean) => Promise<void>
@@ -106,9 +105,7 @@ export function AttendanceCheckIn({
 
   function stopScanner() {
     if (scanTimerRef.current) window.clearInterval(scanTimerRef.current);
-    if (zoomTimerRef.current) window.clearInterval(zoomTimerRef.current);
     scanTimerRef.current = null;
-    zoomTimerRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
   }
@@ -204,20 +201,6 @@ export function AttendanceCheckIn({
           .catch(() => undefined);
       }
 
-      if (capabilities.zoom) {
-        zoomTimerRef.current = window.setInterval(() => {
-          if (!streamRef.current) return;
-          const next = Math.min(capabilities.zoom.max, zoom + 0.4);
-          if (next === zoom) return;
-          zoom = next;
-          track
-            .applyConstraints({
-              advanced: [{ zoom } as unknown as MediaTrackConstraintSet],
-            })
-            .catch(() => undefined);
-        }, 1200);
-      }
-
       const Detector = (window as any).BarcodeDetector;
       const detector = Detector ? new Detector({ formats: ["qr_code"] }) : null;
       const canvas = document.createElement("canvas");
@@ -243,12 +226,14 @@ export function AttendanceCheckIn({
             raw = codes?.[0]?.rawValue || "";
           } else if (context) {
             const video = videoRef.current;
-            const width = Math.min(video.videoWidth, 960);
-            const height = Math.round((video.videoHeight / video.videoWidth) * width);
-            canvas.width = width;
-            canvas.height = height;
-            context.drawImage(video, 0, 0, width, height);
-            const result = jsQR(context.getImageData(0, 0, width, height).data, width, height, {
+            const sourceSize = Math.min(video.videoWidth, video.videoHeight);
+            const sourceX = (video.videoWidth - sourceSize) / 2;
+            const sourceY = (video.videoHeight - sourceSize) / 2;
+            const size = Math.min(sourceSize, 1080);
+            canvas.width = size;
+            canvas.height = size;
+            context.drawImage(video, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
+            const result = jsQR(context.getImageData(0, 0, size, size).data, size, size, {
               inversionAttempts: "attemptBoth",
             });
             raw = result?.data || "";
@@ -308,7 +293,16 @@ export function AttendanceCheckIn({
 
     try {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            sampleRate: { ideal: 48000 },
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+          video: false,
+        });
       } catch (microphoneError) {
         const name = microphoneError instanceof DOMException ? microphoneError.name : "";
         if (name === "NotAllowedError" || name === "PermissionDeniedError") {
@@ -522,13 +516,21 @@ export function AttendanceCheckIn({
               Kamera QR kodga avtomatik yaqinlashadi va fokuslaydi.
             </DialogDescription>
           </DialogHeader>
-          <div className="overflow-hidden rounded-2xl bg-black">
+          <div className="relative overflow-hidden rounded-2xl bg-black">
             <video
               ref={videoRef}
               className="aspect-video w-full object-cover"
               playsInline
               muted
             />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className="relative size-[min(72vw,18rem)] rounded-2xl border-4 border-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.38)]">
+                <span className="absolute -top-1 -left-1 size-8 border-t-4 border-l-4 border-primary" />
+                <span className="absolute -top-1 -right-1 size-8 border-t-4 border-r-4 border-primary" />
+                <span className="absolute -bottom-1 -left-1 size-8 border-b-4 border-l-4 border-primary" />
+                <span className="absolute -right-1 -bottom-1 size-8 border-r-4 border-b-4 border-primary" />
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Camera size={16} />
