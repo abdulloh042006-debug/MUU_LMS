@@ -151,7 +151,7 @@ class AttendanceSession(models.Model):
 
 class AttendanceRecord(models.Model):
     STATUS_CHOICES = [('present', 'Qatnashdi'), ('absent', 'Qatnashmadi'), ('late', 'Kechikdi'), ('excused', 'Sababli')]
-    SOURCE_CHOICES = [('manual', 'Qo‘lda'), ('qr', 'QR'), ('ultrasound', 'Ultrasound'), ('system', 'Tizim')]
+    SOURCE_CHOICES = [('manual', 'Qo‘lda'), ('qr', 'QR'), ('ultrasound', 'Ultrasound'), ('manual_code', 'Qisqa kod'), ('system', 'Tizim')]
     session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name='records')
     student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='attendance_records')
     status = models.CharField(max_length=12, choices=STATUS_CHOICES)
@@ -166,6 +166,12 @@ class AttendanceRecord(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['session', 'student'], name='unique_attendance_record')]
+
+
+class AttendanceAttemptWindow(models.Model):
+    key = models.CharField(max_length=100, primary_key=True)
+    window = models.BigIntegerField()
+    attempts = models.PositiveIntegerField(default=0)
 
 
 class Notification(models.Model):

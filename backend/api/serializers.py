@@ -413,11 +413,23 @@ class AttendanceSessionSerializer(CourseScopedSerializer):
 
 class AttendanceCheckInSerializer(serializers.Serializer):
     session = serializers.IntegerField(min_value=1)
-    channel = serializers.ChoiceField(choices=['qr', 'ultrasound'])
+    channel = serializers.ChoiceField(choices=['qr', 'ultrasound', 'manual_code'])
     proof = serializers.CharField(max_length=700)
     latitude = serializers.FloatField(min_value=-90, max_value=90)
     longitude = serializers.FloatField(min_value=-180, max_value=180)
     accuracy = serializers.FloatField(min_value=0, max_value=2000)
+
+
+class AttendanceClientFailureReportSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=[
+        'camera_denied', 'camera_dismissed', 'camera_no_device',
+        'camera_insecure', 'camera_unsupported', 'camera_error',
+        'ultrasound_unsupported', 'ultrasound_insecure',
+        'ultrasound_low_volume', 'ultrasound_noise', 'ultrasound_timeout',
+        'microphone_denied', 'microphone_no_device', 'microphone_error',
+    ])
+    browser = serializers.ChoiceField(choices=['Chrome', 'Safari', 'Samsung', 'Edge', 'Firefox', 'Other'])
+    os = serializers.ChoiceField(choices=['Android', 'iOS', 'Windows', 'macOS', 'Linux', 'Other'])
 
 
 class AttendanceManualMarkSerializer(serializers.Serializer):

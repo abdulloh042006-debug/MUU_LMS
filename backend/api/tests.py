@@ -435,8 +435,8 @@ class IntegrationTests(APITestCase):
             'longitude':longitude,
             'accuracy':8,
         },format='json')
-        self.assertEqual(replay.status_code,200,replay.data)
-        self.assertTrue(replay.data['already_checked_in'])
+        self.assertEqual(replay.status_code,409,replay.data)
+        self.assertEqual(replay.data['code'], 'already_checked_in')
         self.assertEqual(AttendanceRecord.objects.filter(session_id=session_id,student=self.student).count(),1)
 
         self.authenticate(classmate)

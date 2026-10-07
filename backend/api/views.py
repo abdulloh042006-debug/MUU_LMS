@@ -28,11 +28,13 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.utils import get_md5_hash_password
+from .attendance_security import AttendanceError, consume_attempts, manual_code, validate_manual_code, log_failure
 from .access import TeacherOnly, AdminOnly, courses_for, scoped, is_admin, is_teacher
 from .models import User, Course, Assignment, Submission, Book, CalendarEvent, AttendanceSession, AttendanceRecord, Notification
 from .serializers import (LoginSerializer, UserProfileSerializer, AdminUserSerializer, ChangePasswordSerializer, AccountRecoverySerializer, CourseSerializer, AssignmentSerializer,
     SubmissionSerializer, GradeSerializer, BookSerializer, CalendarEventSerializer, AttendanceSessionSerializer, AttendanceRecordSerializer, NotificationSerializer,
-    CourseStudentSerializer, EmptySerializer, AttendanceCheckInSerializer, AttendanceManualMarkSerializer, AttendancePresenceSerializer, TelegramLinkSerializer)
+    CourseStudentSerializer, EmptySerializer, AttendanceCheckInSerializer, AttendanceClientFailureReportSerializer,
+    AttendanceManualMarkSerializer, AttendancePresenceSerializer, TelegramLinkSerializer)
 
 
 
@@ -58,11 +60,15 @@ def validate_qr_proof(session_id, proof):
         signed_session, bucket = payload.split(':', 1)
         signed_session = int(signed_session)
         bucket = int(bucket)
-    except (BadSignature, SignatureExpired, ValueError, TypeError):
-        raise ValidationError({'proof': 'QR kodi eskirgan yoki noto‘g‘ri.'})
+    except SignatureExpired:
+        raise AttendanceError('code_expired')
+    except (BadSignature, ValueError, TypeError):
+        raise AttendanceError('code_invalid')
     current = attendance_bucket()
-    if signed_session != session_id or bucket not in (current, current - 1):
-        raise ValidationError({'proof': 'QR kodi eskirgan yoki boshqa mashg‘ulotga tegishli.'})
+    if signed_session != session_id:
+        raise AttendanceError('code_invalid')
+    if bucket not in (current, current - 1):
+        raise AttendanceError('code_expired')
 
 
 def make_ultrasound_code(session_id, bucket=None):
@@ -965,6 +971,7 @@ class AttendanceChallengeAPIView(generics.GenericAPIView):
             'course_code': session.course.code,
             'course_title': session.course.title,
             'topic': session.topic,
+            'manual_code': manual_code(session.pk) if session.starts_at - timedelta(seconds=30) <= now <= check_in_ends_at else None,
             'qr_proof': make_qr_proof(session.pk),
             'ultrasound_code': make_ultrasound_code(session.pk),
             'refresh_seconds': ATTENDANCE_BUCKET_SECONDS,
@@ -1057,42 +1064,63 @@ class AttendanceManualMarkAPIView(generics.GenericAPIView):
 class AttendanceCheckInAPIView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AttendanceCheckInSerializer
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = 'attendance'
+    throttle_classes = []
 
-    @transaction.atomic
     def post(self, request):
         if request.user.role != 'student':
             raise PermissionDenied('Avtomatik davomatni faqat talaba tasdiqlaydi.')
+        if set(request.data.keys()) == {'reason', 'browser', 'os'}:
+            report = AttendanceClientFailureReportSerializer(data=request.data)
+            report.is_valid(raise_exception=True)
+            if not consume_attempts(request.user.pk, 0):
+                raise AttendanceError('rate_limited', 429)
+            log_failure(request, **report.validated_data)
+            return Response({'reported': True}, status=status.HTTP_202_ACCEPTED)
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            raise AttendanceError('code_invalid')
+        session_id = serializer.validated_data['session']
+        if not AttendanceSession.objects.filter(pk=session_id).exists():
+            raise AttendanceError('session_not_active')
+        if not consume_attempts(request.user.pk, session_id):
+            raise AttendanceError('rate_limited', 429)
+        try:
+            with transaction.atomic():
+                return self.check_in(request)
+        except AttendanceError as error:
+            log_failure(request, str(error.detail['code']))
+            raise
+
+    def check_in(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        session = get_object_or_404(
-            AttendanceSession.objects.select_for_update().select_related('course', 'calendar_event'),
-            pk=data['session'],
-            course__students=request.user,
-            course__is_archived=False,
-        )
+        session = AttendanceSession.objects.select_for_update(of=('self',)).select_related('course', 'calendar_event').filter(pk=data['session']).first()
+        if not session or session.course.is_archived:
+            raise AttendanceError('session_not_active')
         if not attendance_students(session).filter(pk=request.user.pk).exists():
-            raise PermissionDenied('Siz bu dars guruhiga kirmaysiz.')
+            raise AttendanceError('not_enrolled', 403)
         if not session.automated_checkin:
-            raise ValidationError('Bu mashg‘ulotda avtomatik davomat yoqilmagan.')
+            raise AttendanceError('session_not_active')
 
         now = timezone.now()
         check_in_ends_at, _ = sync_attendance_session(session, now)
         session.refresh_from_db()
-        if session.ended_at:
-            raise ValidationError('Dars vaqti tugagan.')
+        if session.ended_at or now < session.starts_at - timedelta(seconds=30) or now > check_in_ends_at:
+            raise AttendanceError('session_not_active')
         late_at, _ = attendance_times(session)
-        if now < session.starts_at - timedelta(seconds=30):
-            raise ValidationError('Davomat hali boshlanmagan.')
-        if now > check_in_ends_at:
-            raise ValidationError('Davomat vaqti tugagan.')
 
+        if session.records.filter(student=request.user).exists():
+            raise AttendanceError('already_checked_in', 409)
         if data['channel'] == 'qr':
             validate_qr_proof(session.pk, data['proof'])
+        elif data['channel'] == 'manual_code':
+            validate_manual_code(session.pk, data['proof'])
         else:
-            validate_ultrasound_code(session.pk, data['proof'])
+            try:
+                validate_ultrasound_code(session.pk, data['proof'])
+            except ValidationError:
+                raise AttendanceError('code_invalid')
 
         distance = validate_attendance_location(
             session,
@@ -1101,32 +1129,26 @@ class AttendanceCheckInAPIView(generics.GenericAPIView):
             data['accuracy'],
         )
 
-        existing = session.records.filter(student=request.user).first()
-        if existing and existing.source == 'manual':
-            payload = AttendanceRecordSerializer(existing).data
-            payload['already_checked_in'] = True
-            payload['manual_override'] = True
-            return Response(payload)
-
         check_status = 'late' if now > late_at else 'present'
-        next_samples = (existing.presence_samples if existing else 0) + 1
-        record, created = AttendanceRecord.objects.update_or_create(
+        record, created = AttendanceRecord.objects.get_or_create(
             session=session,
             student=request.user,
             defaults={
                 'status': check_status,
                 'note': '',
                 'source': data['channel'],
-                'checked_at': existing.checked_at if existing and existing.checked_at else now,
+                'checked_at': now,
                 'last_seen_at': now,
-                'presence_samples': next_samples,
+                'presence_samples': 1,
                 'presence_alerted_at': None,
                 'distance_m': max(0, round(distance)),
                 'location_accuracy_m': max(0, round(data['accuracy'])),
             },
         )
         payload = AttendanceRecordSerializer(record).data
-        payload['already_checked_in'] = not created
+        if not created:
+            raise AttendanceError('already_checked_in', 409)
+        payload['already_checked_in'] = False
         payload['manual_override'] = False
         return Response(payload, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 

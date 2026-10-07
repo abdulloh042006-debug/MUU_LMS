@@ -1,4 +1,16 @@
 import { config } from "./config";
+import type { ClientEnvironment, ClientFailureReason } from "./attendance-client-helpers";
+
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
 
 let accessToken: string | null = null;
 let refreshing: Promise<void> | null = null;
@@ -53,6 +65,8 @@ async function fetchAPI(
   options: RequestInit = {},
   retry = true,
 ): Promise<any> {
+  const method = (options.method ?? "GET").toUpperCase();
+  const readOnlyRequest = method === "GET" || method === "HEAD";
   const headers = new Headers(options.headers);
   if (!(options.body instanceof FormData))
     headers.set("Content-Type", "application/json");
@@ -62,14 +76,27 @@ async function fetchAPI(
     endpoint === "/health/";
   if (accessToken && !publicRequest)
     headers.set("Authorization", `Bearer ${accessToken}`);
-  const response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-    credentials: "same-origin",
-    cache: "no-store",
-    signal: AbortSignal.timeout(config.API_TIMEOUT),
-  });
-  if (response.status === 401 && !publicRequest && retry) {
+  let response: Response;
+  try {
+    response = await fetch(`${config.API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      credentials: "same-origin",
+      cache: "no-store",
+      signal: AbortSignal.timeout(config.API_TIMEOUT),
+    });
+  } catch (error) {
+    if (retry && method === "GET") {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      return fetchAPI(endpoint, options, false);
+    }
+    throw error;
+  }
+  if (response.status >= 500 && response.status < 600 && retry && readOnlyRequest) {
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    return fetchAPI(endpoint, options, false);
+  }
+  if (response.status === 401 && !publicRequest && retry && readOnlyRequest) {
     await refreshToken();
     return fetchAPI(endpoint, options, false);
   }
@@ -81,11 +108,17 @@ async function fetchAPI(
           .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(" ") : value}`)
           .join("; ")
       : "";
-    throw new Error(
-      response.status >= 500
-        ? `Server xatosi (${response.status}). Iltimos, birozdan keyin qayta urinib ko‘ring.${detail ? ` ${detail}` : ""}`
-        : detail || `So‘rov bajarilmadi (${response.status}).`,
-    );
+    const code =
+      data && typeof data === "object" && typeof data.code === "string"
+        ? data.code
+        : undefined;
+    const message =
+      code && typeof data.message === "string"
+        ? data.message
+        : response.status >= 500
+          ? `Server xatosi (${response.status}). Iltimos, birozdan keyin qayta urinib ko‘ring.${detail ? ` ${detail}` : ""}`
+          : detail || `So‘rov bajarilmadi (${response.status}).`;
+    throw new ApiRequestError(message, response.status, code);
   }
   return data;
 }
@@ -273,12 +306,20 @@ export const getAttendanceChallenge = (id: number) =>
   fetchAPI(`/attendance/${id}/challenge/`);
 export const checkInAttendance = (data: {
   session: number;
-  channel: "qr" | "ultrasound";
+  channel: "qr" | "ultrasound" | "manual_code";
   proof: string;
   latitude: number;
   longitude: number;
   accuracy: number;
 }) => fetchAPI("/attendance/check-in/", post(data));
+
+export function reportAttendanceFailure(report: {
+  reason: ClientFailureReason;
+  browser: ClientEnvironment["browser"];
+  os: ClientEnvironment["os"];
+}) {
+  return fetchAPI("/attendance/check-in/", post(report));
+}
 export const NOTIFICATIONS_CHANGED = "lms:notifications-changed";
 export const getNotifications = () => fetchAPI("/notifications/");
 export async function markNotificationRead(id: number) {
