@@ -393,7 +393,7 @@ class AttendanceSessionSerializer(CourseScopedSerializer):
         course = validated_data['course']
         if 'attendance_minutes' not in validated_data:
             count = course.students.filter(is_active=True).count()
-            validated_data['attendance_minutes'] = min(10, 3 + max(0, (count - 1) // 30))
+            validated_data['attendance_minutes'] = 60
         if 'late_after_minutes' not in validated_data:
             window = validated_data['attendance_minutes']
             validated_data['late_after_minutes'] = max(1, min(window - 1, round(window * 0.6)))
