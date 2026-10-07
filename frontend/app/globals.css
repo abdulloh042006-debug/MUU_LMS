@@ -1443,9 +1443,15 @@ button:active:not(:disabled),
     min-width: 0;
     flex-direction: column;
   }
+  .attendance-session-row > div:last-child {
+  gap: 8px;
+  }
   .attendance-session-row > div:last-child button {
-    width: 100%;
-    min-width: 0;
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+  white-space: normal;
+  line-height: 1.25;
   }
   .mobile-menu {
     display: inline-flex !important;
