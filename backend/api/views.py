@@ -120,6 +120,8 @@ def attendance_times(session):
 
 
 def lesson_ends_at(session):
+    if session.is_test_mode:
+        return session.starts_at + timedelta(minutes=60)
     if session.calendar_event_id:
         return session.calendar_event.end_time
     return session.starts_at + timedelta(minutes=70)
@@ -791,9 +793,10 @@ class LessonAttendanceAPIView(generics.GenericAPIView):
     def post(self, request, event_id):
         event = self.get_event(request, event_id)
         now = timezone.now()
-        if now < event.start_time - timedelta(minutes=10):
+        test_mode = bool(request.data.get('test_mode'))
+        if not test_mode and now < event.start_time - timedelta(minutes=10):
             raise ValidationError('Darsni boshlashga hali 10 daqiqadan ko‘p vaqt bor.')
-        if now >= event.end_time:
+        if not test_mode and now >= event.end_time:
             raise ValidationError('Bu dars vaqti tugagan.')
         try:
             latitude = float(request.data.get('latitude'))
@@ -804,9 +807,9 @@ class LessonAttendanceAPIView(generics.GenericAPIView):
             raise ValidationError({'location': 'Lokatsiya koordinatasi noto‘g‘ri.'})
 
         count = event_students(event).count()
-        window = min(10, 3 + max(0, (count - 1) // 30))
+        window = 60 if test_mode else min(60, 3 + max(0, (count - 1) // 30))
         late_after = max(1, min(window - 1, round(window * 0.6)))
-        starts_at = now if now >= event.start_time else event.start_time
+        starts_at = now if test_mode or now >= event.start_time else event.start_time
         session, created = AttendanceSession.objects.get_or_create(
             calendar_event=event,
             defaults={
@@ -814,6 +817,7 @@ class LessonAttendanceAPIView(generics.GenericAPIView):
                 'starts_at': starts_at,
                 'topic': event.title,
                 'automated_checkin': True,
+                'is_test_mode': test_mode,
                 'attendance_minutes': window,
                 'late_after_minutes': late_after,
                 'location_latitude': latitude,
@@ -823,6 +827,13 @@ class LessonAttendanceAPIView(generics.GenericAPIView):
             },
         )
         if not created:
+            if test_mode:
+                session.starts_at = now
+                session.is_test_mode = True
+                session.attendance_minutes = 60
+                session.late_after_minutes = 36
+                session.ended_at = None
+                session.save(update_fields=['starts_at', 'is_test_mode', 'attendance_minutes', 'late_after_minutes', 'ended_at'])
             sync_attendance_session(session, now)
             update_fields = []
             if session.location_latitude is None:

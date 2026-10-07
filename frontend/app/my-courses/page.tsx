@@ -212,8 +212,8 @@ export default function LessonsPage() {
       new Date(event.end_time).getTime() > currentTime,
   );
 
-  async function startLesson(event: any) {
-    if (lessonAvailability(event, Date.now()) !== "ready") {
+  async function startLesson(event: any, testMode = false) {
+    if (!testMode && lessonAvailability(event, Date.now()) !== "ready") {
       setError("Darsni faqat boshlanishidan 10 daqiqa oldin yoki dars davomida boshlash mumkin.");
       return;
     }
@@ -222,7 +222,7 @@ export default function LessonsPage() {
     try {
       await unlockAttendanceAudio();
       const location = await getLocation();
-      const response = await api.startLessonAttendance(event.id, location);
+      const response = await api.startLessonAttendance(event.id, location, testMode);
       router.push(
         `/lessons/${event.id}?session=${response.session.id}`,
       );
@@ -310,13 +310,23 @@ export default function LessonsPage() {
                 {activeEvent.for_group || activeEvent.course_title} · {activeEvent.room || "Xona belgilanmagan"}
               </p>
             </div>
-            <Button
-              disabled={starting !== null}
-              onClick={() => startLesson(activeEvent)}
-            >
-              <Play size={16} />
-              {starting === activeEvent.id ? "Boshlanmoqda…" : "Darsni boshlash"}
-            </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  disabled={starting !== null}
+                  onClick={() => startLesson(activeEvent)}
+                >
+                  <Play size={16} />
+                  {starting === activeEvent.id ? "Boshlanmoqda…" : "Darsni boshlash"}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={starting !== null}
+                  onClick={() => startLesson(activeEvent, true)}
+                >
+                  <Play size={16} />
+                  Test uchun hozir boshlash
+                </Button>
+              </div>
           </div>
         )}
 
@@ -394,21 +404,31 @@ export default function LessonsPage() {
                               </span>
                             </div>
                             {teacher ? (
-                              <Button
-                                size="sm"
-                                disabled={starting !== null || lessonAvailability(event, currentTime) !== "ready"}
-                                onClick={() => startLesson(event)}
-                              >
-                                <Play size={14} />
-                                {starting === event.id ? "..." : lessonButtonLabel(event, currentTime, true)}
-                              </Button>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  disabled={starting !== null || lessonAvailability(event, currentTime) !== "ready"}
+                                  onClick={() => startLesson(event)}
+                                >
+                                  <Play size={14} />
+                                  {starting === event.id ? "..." : lessonButtonLabel(event, currentTime, true)}
+                                </Button>
+                                {lessonAvailability(event, currentTime) !== "ready" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={starting !== null}
+                                    onClick={() => startLesson(event, true)}
+                                  >
+                                    Test uchun hozir boshlash
+                                  </Button>
+                                )}
+                              </div>
                             ) : (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() =>
-                                  router.push(`/courses?course=${event.course}`)
-                                }
+                                onClick={() => router.push(`/courses?course=${event.course}`)}
                               >
                                 Ochish
                               </Button>

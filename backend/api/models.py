@@ -135,6 +135,7 @@ class AttendanceSession(models.Model):
     starts_at = models.DateTimeField()
     topic = models.CharField(max_length=200)
     automated_checkin = models.BooleanField(default=False)
+    is_test_mode = models.BooleanField(default=False)
     attendance_minutes = models.PositiveSmallIntegerField(default=60, validators=[MinValueValidator(2), MaxValueValidator(60)])
     late_after_minutes = models.PositiveSmallIntegerField(default=2, validators=[MinValueValidator(1), MaxValueValidator(59)])
     location_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
