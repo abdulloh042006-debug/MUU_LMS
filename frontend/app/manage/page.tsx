@@ -927,10 +927,10 @@ export default function Management() {
                             <span className="text-xs text-muted-foreground">Bo‘sh qoldirsangiz, tugma bosilgan vaqtda boshlanadi.</span>
                           </Field>
                           <Field label="Davomat oynasi (daqiqa)">
-                            <Input aria-label="Davomat oynasi" name="attendance_minutes" type="number" min={2} max={15} defaultValue={10} required />
+                            <Input aria-label="Davomat oynasi" name="attendance_minutes" type="number" min={2} max={60} defaultValue={60} required />
                           </Field>
                           <p className="text-sm text-muted-foreground">
-                            Boshlashda auditoriya lokatsiyasi olinadi. Davomat oynasini 2–15 daqiqa oralig‘ida tanlang.
+                            Boshlashda auditoriya lokatsiyasi olinadi. Davomat oynasini 2–60 daqiqa oralig‘ida tanlang. Test uchun 60 daqiqa qo‘yildi.
                           </p>
                           <Button disabled={busy || !canCreate}>
                             Davomatni boshlash
@@ -1173,14 +1173,16 @@ export default function Management() {
                       />
                     </Field>
                   )}
-                          <Field label="Tugash (Toshkent vaqti)">
-                            <Input
-                              aria-label="Tadbir tugashi"
-                              name="end_time"
-                              type="datetime-local"
-                              required
-                            />
-                          </Field>
+                          {calendarType !== "lesson" && (
+                            <Field label="Tugash (Toshkent vaqti)">
+                              <Input
+                                aria-label="Tadbir tugashi"
+                                name="end_time"
+                                type="datetime-local"
+                                required
+                              />
+                            </Field>
+                          )}
                           <Field label="Izoh">
                             <Textarea
                               aria-label="Tadbir izohi"
