@@ -12,6 +12,7 @@ import {
 import * as api from "@/lib/api-service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -78,6 +79,8 @@ export function AttendanceCheckIn({
   const [error, setError] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerStatus, setScannerStatus] = useState("");
+  const [manualQrOpen, setManualQrOpen] = useState(false);
+  const [manualQrValue, setManualQrValue] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanTimerRef = useRef<number | null>(null);
@@ -270,8 +273,33 @@ export function AttendanceCheckIn({
       stopScanner();
       setScannerStatus("");
       setScannerOpen(false);
-      setError(e instanceof Error ? e.message : String(e));
+      const name = e instanceof DOMException ? e.name : "";
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        setError("Kamera ruxsati rad etildi. Brauzer sozlamalarida Camera → Allow ni tanlang.");
+      } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+        setError("Kamera topilmadi. Kamera ulanganini va boshqa ilova ishlatmayotganini tekshiring.");
+      } else {
+        setError(e instanceof Error ? e.message : String(e));
+      }
     }
+  }
+
+  async function submitManualQr() {
+    setError("");
+    let payload: { v?: number; session?: number; proof?: string };
+    try {
+      payload = JSON.parse(manualQrValue.trim());
+    } catch {
+      setError("QR kod matni JSON formatida bo‘lishi kerak.");
+      return;
+    }
+    if (payload.v !== 1 || !Number.isInteger(payload.session) || !payload.proof) {
+      setError("QR kodi formati noto‘g‘ri.");
+      return;
+    }
+    setManualQrOpen(false);
+    setManualQrValue("");
+    await submitCheckIn(Number(payload.session), "qr", payload.proof, freshLocation());
   }
 
   async function listenUltrasound(session: ActiveSession, silent = false) {
@@ -470,6 +498,14 @@ export function AttendanceCheckIn({
                   </Button>
                   <Button
                     type="button"
+                    variant="ghost"
+                    disabled={busySession !== null}
+                    onClick={() => setManualQrOpen(true)}
+                  >
+                    QR matnini kiritish
+                  </Button>
+                  <Button
+                    type="button"
                     variant="outline"
                     disabled={busySession !== null || session.already_checked_in}
                     onClick={() => void listenUltrasound(session)}
@@ -536,6 +572,26 @@ export function AttendanceCheckIn({
             <Camera size={16} />
             {scannerStatus || "Kamera tayyorlanmoqda…"}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manualQrOpen} onOpenChange={setManualQrOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>QR matnini qo‘lda kiritish</DialogTitle>
+            <DialogDescription>
+              Kamera ishlamasa, QR koddan olingan JSON matnni shu yerga kiriting.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={manualQrValue}
+            onChange={(event) => setManualQrValue(event.target.value)}
+            placeholder='{"v":1,"session":123,"proof":"..."}'
+            aria-label="QR kodi matni"
+          />
+          <Button type="button" onClick={() => void submitManualQr()}>
+            Davomatni tasdiqlash
+          </Button>
         </DialogContent>
       </Dialog>
     </>
