@@ -46,13 +46,18 @@ const campusDate = (value: string) => {
   const part = (type: string) => parts.find((item) => item.type === type)?.value;
   return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
 };
-const LESSON_PERIODS: Record<number, [string, string]> = {
+const DAY_PERIODS: Record<number, [string, string]> = {
   1: ["08:00", "09:10"],
   2: ["09:20", "10:30"],
   3: ["10:40", "11:50"],
-  4: ["12:00", "13:10"],
-  5: ["13:20", "14:30"],
-  6: ["14:40", "15:50"],
+  4: ["12:30", "13:40"],
+  5: ["13:50", "15:00"],
+  6: ["15:10", "16:20"],
+  7: ["16:30", "17:40"],
+};
+const EVENING_PERIODS: Record<number, [string, string]> = {
+  1: ["18:00", "19:10"],
+  2: ["19:20", "20:30"],
 };
 
 const freshLocation = () =>
@@ -107,7 +112,9 @@ export default function Management() {
   const [pendingOnly, setPendingOnly] = useState(true);
   const [calendarType, setCalendarType] = useState("lesson");
   const [selectedPeriod, setSelectedPeriod] = useState(0);
+  const [shift, setShift] = useState<"day" | "evening">("day");
   const [lessonDate, setLessonDate] = useState("");
+  const lessonPeriods = shift === "evening" ? EVENING_PERIODS : DAY_PERIODS;
   const [activeTab, setActiveTab] = useState("courses");
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1071,12 +1078,12 @@ export default function Management() {
                               for_group: d.get("for_group"),
                           start_time: campusStamp(
                             calendarType === "lesson"
-                              ? `${lessonDate}T${LESSON_PERIODS[selectedPeriod]?.[0] || "08:00"}`
+                              ? `${lessonDate}T${lessonPeriods[selectedPeriod]?.[0] || "08:00"}`
                               : d.get("start_time"),
                           ),
                           end_time: campusStamp(
                             calendarType === "lesson"
-                              ? `${lessonDate}T${LESSON_PERIODS[selectedPeriod]?.[1] || "09:10"}`
+                              ? `${lessonDate}T${lessonPeriods[selectedPeriod]?.[1] || "09:10"}`
                               : d.get("end_time"),
                           ),
                             }),
@@ -1103,6 +1110,21 @@ export default function Management() {
                             </select>
                           </Field>
                           {calendarType === "lesson" && (
+                            <>
+                            <Field label="Smena">
+                              <select
+                                aria-label="Smena"
+                                value={shift}
+                                onChange={(event) => {
+                                  setShift(event.target.value as "day" | "evening");
+                                  setSelectedPeriod(0);
+                                }}
+                                className="native-select"
+                              >
+                                <option value="day">Kunduzgi smena</option>
+                                <option value="evening">Kechki smena</option>
+                              </select>
+                            </Field>
                             <Field label="Dars parasi">
                               <select
                                 aria-label="Dars parasi"
@@ -1113,14 +1135,16 @@ export default function Management() {
                             required
                           >
                             <option value="" disabled>Parani tanlang</option>
-                            {[1, 2, 3, 4, 5, 6].map((period) => (
-                              <option key={period} value={period}>{period}-para · {LESSON_PERIODS[period][0]}–{LESSON_PERIODS[period][1]}</option>
-                            ))}
+                            {Object.keys(lessonPeriods).map((key) => {
+                              const period = Number(key);
+                              return <option key={period} value={period}>{period}-para · {lessonPeriods[period][0]}–{lessonPeriods[period][1]}</option>;
+                            })}
                           </select>
                           <p className="text-xs text-muted-foreground">
                             Boshlanish va tugash vaqti para jadvalidan avtomatik olinadi.
                           </p>
                             </Field>
+                            </>
                           )}
                           <Field label="Xona (ixtiyoriy)">
                             <Input aria-label="Tadbir xonasi" name="room" maxLength={50} />
