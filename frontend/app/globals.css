@@ -1382,6 +1382,23 @@ button:active:not(:disabled),
   .workspace-heading p {
     overflow-wrap: anywhere;
   }
+  .attendance-session-row {
+    align-items: stretch;
+  }
+  .attendance-session-row > div:first-child {
+    min-width: 0;
+    width: 100%;
+  }
+  .attendance-session-row > div:last-child {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+  }
+  .attendance-session-row > div:last-child button {
+    width: 100%;
+    min-width: 0;
+  }
   .mobile-menu {
     display: inline-flex !important;
   }

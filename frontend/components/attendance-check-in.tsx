@@ -307,14 +307,18 @@ export function AttendanceCheckIn({
     let timer: number | null = null;
 
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-        video: false,
-      });
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch (microphoneError) {
+        const name = microphoneError instanceof DOMException ? microphoneError.name : "";
+        if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+          throw new Error("Mikrofon ruxsati rad etildi. Brauzer manzil satridagi qulf belgisidan Mikrofon → Allow ni tanlang.");
+        }
+        if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+          throw new Error("Mikrofon topilmadi. Qurilmaga mikrofon ulang yoki tizim sozlamalarida mikrofonni yoqing.");
+        }
+        throw new Error("Mikrofonni ochib bo‘lmadi. Brauzer ruxsati va qurilma mikrofonini tekshiring.");
+      }
       const AudioCtor =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext?: typeof AudioContext })
@@ -445,7 +449,7 @@ export function AttendanceCheckIn({
         {sessions.map((session) => (
           <Card key={session.id}>
             <CardContent className="p-5">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="attendance-session-row flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <MapPin size={17} />

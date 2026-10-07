@@ -75,17 +75,18 @@ async function fetchAPI(
   }
   const data =
     response.status === 204 ? null : await response.json().catch(() => null);
-  if (!response.ok)
+  if (!response.ok) {
+    const detail = data
+      ? Object.entries(data)
+          .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(" ") : value}`)
+          .join("; ")
+      : "";
     throw new Error(
-      data
-        ? Object.entries(data)
-            .map(
-              ([key, value]) =>
-                `${key}: ${Array.isArray(value) ? value.join(" ") : value}`,
-            )
-            .join("; ")
-        : `Server xatosi (${response.status})`,
+      response.status >= 500
+        ? `Server xatosi (${response.status}). Iltimos, birozdan keyin qayta urinib ko‘ring.${detail ? ` ${detail}` : ""}`
+        : detail || `So‘rov bajarilmadi (${response.status}).`,
     );
+  }
   return data;
 }
 const post = (data: any): RequestInit => ({
