@@ -656,6 +656,13 @@ class CalendarDetailAPIView(CourseResourceMixin, generics.RetrieveUpdateDestroyA
     owner_field = 'created_by'
     serializer_class = CalendarEventSerializer
 
+    @transaction.atomic
+    def perform_destroy(self, instance):
+        # Attendance sessions protect their lesson event, so remove the linked
+        # session first when a teacher deletes a lesson from the calendar.
+        AttendanceSession.objects.filter(calendar_event=instance).delete()
+        instance.delete()
+
 
 class SubmissionAPIView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
