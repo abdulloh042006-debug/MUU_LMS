@@ -99,7 +99,8 @@ export default function Management() {
   const [calendarType, setCalendarType] = useState("lesson");
   const [activeTab, setActiveTab] = useState("courses");
   useEffect(() => {
-    const tab = new URLSearchParams(window.location.search).get("tab");
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
     if (tab && ["courses", "materials", "assignments", "grading", "attendance", "calendar"].includes(tab)) {
       setActiveTab(tab);
     }
@@ -247,9 +248,15 @@ export default function Management() {
         <main className="workspace-page">
           <div className="workspace-heading">
             <div>
-              <p className="eyebrow">TA’LIM JARAYONINI BOSHQARISH</p>
-              <h1>Ustoz kabineti</h1>
-              <p>Dars, talabalar, topshiriqlar va baholash — bir joyda.</p>
+              <p className="eyebrow">
+                {admin ? "ADMINISTRATOR · TA’LIM NAZORATI" : "USTOZ · DARS BOSHQARUVI"}
+              </p>
+              <h1>{admin ? "Ta’lim boshqaruvi" : "Ustoz boshqaruvi"}</h1>
+              <p>
+                {admin
+                  ? "Barcha darslar, ustozlar va LMS jarayonlarini nazorat qiling."
+                  : "O‘zingizning darslaringizni yarating, talabalarni qo‘shing va material joylang."}
+              </p>
             </div>
             <Button
               variant="outline"
@@ -321,9 +328,14 @@ export default function Management() {
                 </TabsList>
                 <TabsContent value="courses">
                   <div className="management-grid">
-                    <Card>
+                    <Card className="teacher-create-course-card">
                       <CardHeader>
-                        <CardTitle>Yangi dars</CardTitle>
+                        <CardTitle>{admin ? "Yangi dars ochish" : "Birinchi darsingizni yarating"}</CardTitle>
+                        <p className="text-sm text-muted-foreground">
+                          {admin
+                            ? "Darsni ustozga biriktiring."
+                            : "Dars yaratilgach, unga talabalar va materiallar qo‘shasiz."}
+                        </p>
                       </CardHeader>
                       <CardContent>
                         <form
