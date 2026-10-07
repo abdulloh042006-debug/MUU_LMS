@@ -270,7 +270,7 @@ export default function LessonSessionPage() {
         </div>
 
         {tab === "attendance" ? (
-          <div className="grid gap-5 xl:grid-cols-[1fr_390px]">
+          <div className="attendance-layout grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
             <section className="rounded-2xl border bg-card p-5">
               <div className="mb-4">
                 <h2 className="text-xl font-semibold">O‘tganlar ro‘yxati</h2>
@@ -358,7 +358,7 @@ export default function LessonSessionPage() {
             )}
           </div>
         ) : (
-          <div className="grid gap-5 xl:grid-cols-[1fr_300px]">
+          <div className="attendance-layout grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
             <section className="rounded-2xl border bg-card p-5">
               <div className="mb-4">
                 <h2 className="text-xl font-semibold">Talabalar ro‘yxati</h2>

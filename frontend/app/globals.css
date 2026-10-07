@@ -1797,6 +1797,18 @@ button:active:not(:disabled),
   min-height: 36px;
   font-size: 14px;
 }
+
+/* Keep attendance panels inside the available viewport without shrinking the QR. */
+@media (max-width: 1300px) {
+  .attendance-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .attendance-layout > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
 .subject-tag {
   line-height: 1.5;
   display: block;
