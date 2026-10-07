@@ -793,7 +793,8 @@ class LessonAttendanceAPIView(generics.GenericAPIView):
     def post(self, request, event_id):
         event = self.get_event(request, event_id)
         now = timezone.now()
-        test_mode = bool(request.data.get('test_mode'))
+        raw_test_mode = request.data.get('test_mode', False)
+        test_mode = raw_test_mode is True or str(raw_test_mode).strip().lower() in {'1', 'true', 'yes'}
         if not test_mode and now < event.start_time - timedelta(minutes=10):
             raise ValidationError('Darsni boshlashga hali 10 daqiqadan ko‘p vaqt bor.')
         if not test_mode and now >= event.end_time:

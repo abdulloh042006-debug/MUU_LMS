@@ -499,17 +499,30 @@ export default function LessonsPage() {
                                 </div>
                               </div>
                               {teacher ? (
-                                <Button
-                                  size="sm"
-                                  className="mt-3 w-full"
-                                  disabled={starting !== null || lessonAvailability(event, currentTime) !== "ready"}
-                                  onClick={() => startLesson(event)}
-                                >
-                                  <Play size={14} />
-                                  {starting === event.id
-                                    ? "Boshlanmoqda…"
-                                    : lessonButtonLabel(event, currentTime)}
-                                </Button>
+                                <div className="mt-3 flex flex-col gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="w-full"
+                                    disabled={starting !== null || lessonAvailability(event, currentTime) !== "ready"}
+                                    onClick={() => startLesson(event)}
+                                  >
+                                    <Play size={14} />
+                                    {starting === event.id
+                                      ? "Boshlanmoqda…"
+                                      : lessonButtonLabel(event, currentTime)}
+                                  </Button>
+                                  {lessonAvailability(event, currentTime) !== "ready" && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="w-full"
+                                      disabled={starting !== null}
+                                      onClick={() => startLesson(event, true)}
+                                    >
+                                      Test uchun hozir boshlash
+                                    </Button>
+                                  )}
+                                </div>
                               ) : (
                                 <Button
                                   size="sm"
