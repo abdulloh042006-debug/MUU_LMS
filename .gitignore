@@ -6,7 +6,8 @@ __pycache__/
 .env
 .venv/
 *.sqlite3
-backend/static/
+backend/static/*
+!backend/static/.gitkeep
 backend/media/
 *.tsbuildinfo
 .runlogs/
