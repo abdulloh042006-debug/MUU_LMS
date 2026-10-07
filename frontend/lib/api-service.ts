@@ -53,6 +53,8 @@ async function fetchAPI(
   options: RequestInit = {},
   retry = true,
 ): Promise<any> {
+  const method = (options.method ?? "GET").toUpperCase();
+  const readOnlyRequest = method === "GET" || method === "HEAD";
   const headers = new Headers(options.headers);
   if (!(options.body instanceof FormData))
     headers.set("Content-Type", "application/json");
@@ -72,17 +74,17 @@ async function fetchAPI(
       signal: AbortSignal.timeout(config.API_TIMEOUT),
     });
   } catch (error) {
-    if (retry) {
+    if (retry && method === "GET") {
       await new Promise((resolve) => setTimeout(resolve, 700));
       return fetchAPI(endpoint, options, false);
     }
     throw error;
   }
-  if (response.status >= 500 && response.status < 600 && retry) {
+  if (response.status >= 500 && response.status < 600 && retry && readOnlyRequest) {
     await new Promise((resolve) => setTimeout(resolve, 700));
     return fetchAPI(endpoint, options, false);
   }
-  if (response.status === 401 && !publicRequest && retry) {
+  if (response.status === 401 && !publicRequest && retry && readOnlyRequest) {
     await refreshToken();
     return fetchAPI(endpoint, options, false);
   }
