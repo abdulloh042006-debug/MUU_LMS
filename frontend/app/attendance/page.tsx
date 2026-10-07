@@ -31,7 +31,7 @@ export default function Attendance() {
 
   return (
     <ProtectedRoute>
-      <main className="workspace-page">
+      <main className="workspace-page attendance-page">
         <div className="workspace-heading">
           <div>
             <p className="eyebrow">MASHG‘ULOTLARDAGI ISHTIROKINGIZ</p>

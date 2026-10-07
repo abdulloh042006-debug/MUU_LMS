@@ -1359,9 +1359,11 @@ button:active:not(:disabled),
     display: none;
   }
   .portal-body {
+    flex: 1 1 auto !important;
     margin-left: 0 !important;
     width: 100% !important;
-    max-width: 100vw;
+    max-width: 100vw !important;
+    min-width: 0 !important;
     overflow-x: hidden;
   }
   .portal-surface {
@@ -1372,6 +1374,9 @@ button:active:not(:disabled),
   }
   .workspace-page {
     box-sizing: border-box;
+    position: relative;
+    left: 0 !important;
+    right: auto !important;
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
@@ -1379,6 +1384,10 @@ button:active:not(:disabled),
     padding-left: 17px;
     padding-right: 17px;
   }
+  .attendance-page {
+    overflow-x: hidden;
+  }
+  .attendance-page > *,
   .workspace-page > *,
   .workspace-heading,
   .workspace-heading > div,
@@ -1787,6 +1796,18 @@ button:active:not(:disabled),
 .material-content h3 {
   min-height: 36px;
   font-size: 14px;
+}
+
+/* Keep attendance panels inside the available viewport without shrinking the QR. */
+@media (max-width: 1300px) {
+  .attendance-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .attendance-layout > * {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 .subject-tag {
   line-height: 1.5;
