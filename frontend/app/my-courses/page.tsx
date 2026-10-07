@@ -26,14 +26,15 @@ const days = [
   "Shanba",
 ];
 
-const periods = [
+  const periods = [
   { period: 1, label: "1-para", time: "08:00–09:10" },
   { period: 2, label: "2-para", time: "09:20–10:30" },
   { period: 3, label: "3-para", time: "10:40–11:50" },
-  { period: 4, label: "4-para", time: "12:00–13:10" },
-  { period: 5, label: "5-para", time: "13:20–14:30" },
-  { period: 6, label: "6-para", time: "14:40–15:50" },
-];
+  { period: 4, label: "4-para", time: "12:30–13:40" },
+  { period: 5, label: "5-para", time: "13:50–15:00" },
+  { period: 6, label: "6-para", time: "15:10–16:20" },
+  { period: 7, label: "7-para", time: "16:30–17:40" },
+  ];
 
 const campusZone = "Asia/Tashkent";
 const campusCalendar = new Intl.DateTimeFormat("en-US", {

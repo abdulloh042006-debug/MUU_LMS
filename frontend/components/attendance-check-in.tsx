@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import jsQR from "jsqr";
 import {
   Camera,
   CheckCircle2,
@@ -218,13 +219,17 @@ export function AttendanceCheckIn({
       }
 
       const Detector = (window as any).BarcodeDetector;
-      if (!Detector) {
-        throw new Error(
-          "Bu brauzer QR aniqlashni qo‘llamaydi. Chrome/Edge orqali urinib ko‘ring.",
-        );
+      const detector = Detector ? new Detector({ formats: ["qr_code"] }) : null;
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!detector && !context) {
+        throw new Error("QR skaner uchun kamera oynasi ochilmadi.");
       }
-      const detector = new Detector({ formats: ["qr_code"] });
-      setScannerStatus("QR kodni kameraga qarating. Zoom avtomatik ishlaydi.");
+      setScannerStatus(
+        detector
+          ? "QR kodni kameraga qarating. Zoom avtomatik ishlaydi."
+          : "QR kodni kameraga qarating. iPhone uchun mos skaner ishlamoqda.",
+      );
 
       let detecting = false;
       scanTimerRef.current = window.setInterval(async () => {
@@ -232,8 +237,22 @@ export function AttendanceCheckIn({
           return;
         detecting = true;
         try {
-          const codes = await detector.detect(videoRef.current);
-          const raw = codes?.[0]?.rawValue;
+          let raw = "";
+          if (detector) {
+            const codes = await detector.detect(videoRef.current);
+            raw = codes?.[0]?.rawValue || "";
+          } else if (context) {
+            const video = videoRef.current;
+            const width = Math.min(video.videoWidth, 960);
+            const height = Math.round((video.videoHeight / video.videoWidth) * width);
+            canvas.width = width;
+            canvas.height = height;
+            context.drawImage(video, 0, 0, width, height);
+            const result = jsQR(context.getImageData(0, 0, width, height).data, width, height, {
+              inversionAttempts: "attemptBoth",
+            });
+            raw = result?.data || "";
+          }
           if (!raw) return;
           let payload: { v?: number; session?: number; proof?: string };
           try {
@@ -271,13 +290,14 @@ export function AttendanceCheckIn({
   }
 
   async function listenUltrasound(session: ActiveSession, silent = false) {
-    if (!silent) setBusySession(session.id);
+    if (silent) return;
+    setBusySession(session.id);
     setError("");
     setMessage("");
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       if (!silent) {
         setBusySession(null);
-        setError("Mikrofon uchun HTTPS yoki Chrome’da ushbu lokal manzilni xavfsiz origin sifatida yoqish kerak.");
+        setError("Mikrofon faqat HTTPS sahifada ishlaydi. Tugmani bosgandan keyin brauzer oynasida Allow/Ruxsat bering.");
       }
       return;
     }
@@ -287,14 +307,18 @@ export function AttendanceCheckIn({
     let timer: number | null = null;
 
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-        video: false,
-      });
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch (microphoneError) {
+        const name = microphoneError instanceof DOMException ? microphoneError.name : "";
+        if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+          throw new Error("Mikrofon ruxsati rad etildi. Brauzer manzil satridagi qulf belgisidan Mikrofon → Allow ni tanlang.");
+        }
+        if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+          throw new Error("Mikrofon topilmadi. Qurilmaga mikrofon ulang yoki tizim sozlamalarida mikrofonni yoqing.");
+        }
+        throw new Error("Mikrofonni ochib bo‘lmadi. Brauzer ruxsati va qurilma mikrofonini tekshiring.");
+      }
       const AudioCtor =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext?: typeof AudioContext })
@@ -414,15 +438,7 @@ export function AttendanceCheckIn({
   ultrasoundListenerRef.current = listenUltrasound;
 
   useEffect(() => {
-    const session = sessions.find(
-      (item) =>
-        !item.already_checked_in &&
-        !autoUltrasoundTriedRef.current.has(item.id),
-    );
-    if (!session || typeof window === "undefined" || !window.isSecureContext)
-      return;
-    autoUltrasoundTriedRef.current.add(session.id);
-    void ultrasoundListenerRef.current(session, true);
+    autoUltrasoundTriedRef.current.clear();
   }, [sessions]);
 
   if (loading) return <p className="mb-5">Faol davomat tekshirilmoqda…</p>;
@@ -433,7 +449,7 @@ export function AttendanceCheckIn({
         {sessions.map((session) => (
           <Card key={session.id}>
             <CardContent className="p-5">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="attendance-session-row flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
                     <MapPin size={17} />
