@@ -46,6 +46,15 @@ const campusDate = (value: string) => {
   const part = (type: string) => parts.find((item) => item.type === type)?.value;
   return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
 };
+const LESSON_PERIODS: Record<number, [string, string]> = {
+  1: ["08:00", "09:10"],
+  2: ["09:20", "10:30"],
+  3: ["10:40", "11:50"],
+  4: ["12:00", "13:10"],
+  5: ["13:20", "14:30"],
+  6: ["14:40", "15:50"],
+};
+
 const freshLocation = () =>
   new Promise<GeolocationPosition>((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -97,6 +106,8 @@ export default function Management() {
     [notice, setNotice] = useState("");
   const [pendingOnly, setPendingOnly] = useState(true);
   const [calendarType, setCalendarType] = useState("lesson");
+  const [selectedPeriod, setSelectedPeriod] = useState(0);
+  const [lessonDate, setLessonDate] = useState("");
   const [activeTab, setActiveTab] = useState("courses");
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -593,7 +604,7 @@ export default function Management() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                aria-label={`${b.title}ni o‘chirish`}
+                                aria-label={`${b.title}ni o���chirish`}
                                 disabled={busy}
                                 onClick={() =>
                                   remove(`${b.title} o‘chirilsinmi?`, () =>
@@ -1058,8 +1069,16 @@ export default function Management() {
                               period: calendarType === "lesson" ? Number(d.get("period")) : null,
                               room: d.get("room"),
                               for_group: d.get("for_group"),
-                              start_time: campusStamp(d.get("start_time")),
-                              end_time: campusStamp(d.get("end_time")),
+                          start_time: campusStamp(
+                            calendarType === "lesson"
+                              ? `${lessonDate}T${LESSON_PERIODS[selectedPeriod]?.[0] || "08:00"}`
+                              : d.get("start_time"),
+                          ),
+                          end_time: campusStamp(
+                            calendarType === "lesson"
+                              ? `${lessonDate}T${LESSON_PERIODS[selectedPeriod]?.[1] || "09:10"}`
+                              : d.get("end_time"),
+                          ),
                             }),
                           )}
                         >
@@ -1089,14 +1108,18 @@ export default function Management() {
                                 aria-label="Dars parasi"
                                 name="period"
                                 className="native-select"
-                                defaultValue=""
-                                required
-                              >
-                                <option value="" disabled>Parani tanlang</option>
-                                {[1, 2, 3, 4, 5, 6].map((period) => (
-                                  <option key={period} value={period}>{period}-para</option>
-                                ))}
-                              </select>
+                            value={selectedPeriod || ""}
+                            onChange={(event) => setSelectedPeriod(Number(event.target.value))}
+                            required
+                          >
+                            <option value="" disabled>Parani tanlang</option>
+                            {[1, 2, 3, 4, 5, 6].map((period) => (
+                              <option key={period} value={period}>{period}-para · {LESSON_PERIODS[period][0]}–{LESSON_PERIODS[period][1]}</option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-muted-foreground">
+                            Boshlanish va tugash vaqti para jadvalidan avtomatik olinadi.
+                          </p>
                             </Field>
                           )}
                           <Field label="Xona (ixtiyoriy)">
@@ -1105,14 +1128,27 @@ export default function Management() {
                           <Field label="Guruh (ixtiyoriy)">
                             <Input aria-label="Tadbir guruhi" name="for_group" maxLength={100} />
                           </Field>
-                          <Field label="Boshlanish (Toshkent vaqti)">
-                            <Input
-                              aria-label="Tadbir boshlanishi"
-                              name="start_time"
-                              type="datetime-local"
-                              required
-                            />
-                          </Field>
+                  {calendarType === "lesson" ? (
+                    <Field label="Dars sanasi">
+                      <Input
+                        aria-label="Dars sanasi"
+                        name="lesson_date"
+                        type="date"
+                        value={lessonDate}
+                        onChange={(event) => setLessonDate(event.target.value)}
+                        required
+                      />
+                    </Field>
+                  ) : (
+                    <Field label="Boshlanish (Toshkent vaqti)">
+                      <Input
+                        aria-label="Tadbir boshlanishi"
+                        name="start_time"
+                        type="datetime-local"
+                        required
+                      />
+                    </Field>
+                  )}
                           <Field label="Tugash (Toshkent vaqti)">
                             <Input
                               aria-label="Tadbir tugashi"

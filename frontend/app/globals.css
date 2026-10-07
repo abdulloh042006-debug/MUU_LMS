@@ -1354,6 +1354,45 @@ button:active:not(:disabled),
     display: none;
   }
 }
+@media (max-width: 900px) {
+  .mu-sidebar {
+    display: none;
+  }
+  .portal-body {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  .portal-surface {
+    width: 100% !important;
+    max-width: 100vw;
+    min-width: 0 !important;
+    overflow-x: hidden;
+  }
+  .workspace-page {
+    box-sizing: border-box;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+    padding-left: 17px;
+    padding-right: 17px;
+  }
+  .workspace-page > *,
+  .workspace-heading,
+  .workspace-heading > div,
+  .attendance-session-row,
+  .attendance-session-row > div {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  .attendance-session-row > div:last-child button {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 @media (max-width: 767px) {
   .mu-sidebar {
     display: none;
