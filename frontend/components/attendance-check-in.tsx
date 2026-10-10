@@ -786,25 +786,6 @@ export function AttendanceCheckIn({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={manualQrOpen} onOpenChange={setManualQrOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>QR matnini qo‘lda kiritish</DialogTitle>
-            <DialogDescription>
-              Faqat texnik test uchun QR kodning JSON matnini kiriting.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            value={manualQrValue}
-            onChange={(event) => setManualQrValue(event.target.value)}
-            placeholder='{"v":1,"session":123,"proof":"..."}'
-            aria-label="QR kodi JSON matni"
-          />
-          <Button type="button" onClick={() => void submitManualQr()}>
-            Davomatni tasdiqlash
-          </Button>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
