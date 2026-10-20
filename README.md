@@ -1,5 +1,18 @@
 # MU LMS — Millat Umidi concept
 
+## Demo login accounts
+
+Run `python manage.py seed_demo_lms` in the backend demo environment to create linked demo data and these development-only accounts:
+
+| Role | Username | Password |
+| --- | --- | --- |
+| Admin | `admin_demo` | `AdminDemo!2026` |
+| Teacher | `ustoz_demo` | `UstozDemo!2026` |
+| Student | `talaba_demo` | `TalabaDemo!2026` |
+
+These credentials are for local/demo environments only; change them before production use.
+
+
 University-styled design branch. Open `/preview` to inspect the clearly labeled design demo without a user account. Actual login and protected routes continue to use the real Django API. See DESIGN.md for sources, scope and remaining commercial-readiness work.
 
 Integrated version of https://github.com/Abdullo200604/LMS (original author attribution retained in Git history).
