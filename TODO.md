@@ -4,11 +4,11 @@ Qoida: har bir bosqichdan keyin GitHub'ga push qilinadi, nima qilingani va keyin
 
 ## Hozir bajarilayotgan ish
 
-- [ ] Admin va ustoz akkauntlari bilan kirib, ularning sahifalaridagi tugmalarni tekshirish
+- [ ] Brauzerda attendance oqimini (QR skan, kod, ultrasound fallback) backend bilan birga tekshirish
 
 ## Keyingi rejalar
 
-- [ ] Brauzerda attendance oqimini (QR skan, kod, ultrasound fallback) backend bilan birga tekshirish
+- [ ] Sahifalardagi tugmalarni bosib (topshiriq yuborish, baho qo'yish, davomat) amaliy tekshirish
 - [ ] Topilgan xatolarni tuzatish va qayta tekshirish
 
 ## Bajarilgan ishlar jurnali (ketma-ket)
@@ -18,6 +18,9 @@ Qoida: har bir bosqichdan keyin GitHub'ga push qilinadi, nima qilingani va keyin
 3. Login endpointi `/api/login/` ekani aniqlandi; admin, ustoz va talaba akkauntlari 200 qaytardi.
 4. Talaba sifatida kirish brauzerda tekshirildi, bosh sahifa demo ma'lumot bilan ochildi.
 5. Talaba sahifalari (darslar, topshiriqlar, skaner, xabarlar, profil) xatosiz ochildi.
+6. Admin kirdi: bosh sahifa, darslarim, topshiriqlar, taqvim, ta'lim boshqaruvi va admin boshqaruvi xatosiz ochildi.
+7. Ustoz kirdi: bosh sahifa, darslarim, topshiriqlar, taqvim, ta'lim boshqaruvi va profil xatosiz ochildi.
+8. Ustoz uchun admin-panel himoyalangani tasdiqlandi (rol tekshiruvi `admin-dashboard.tsx` da).
 
 ## Demo akkauntlar
 
