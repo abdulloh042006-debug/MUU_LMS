@@ -19,6 +19,7 @@ type Challenge = {
   course_title: string;
   topic: string;
   qr_proof: string;
+  manual_code: string | null;
   ultrasound_code: string;
   refresh_seconds: number;
   check_in_ends_at: string;
@@ -97,14 +98,19 @@ export function AttendanceBroadcastPanel({
 
   useEffect(() => {
     let active = true;
-    let timer = 0;
+    let timer: number | undefined;
 
     const refresh = async () => {
+      let nextRefreshMs = 5000;
       try {
         const data = await api.getAttendanceChallenge(sessionId);
         if (!active) return;
         setChallenge(data);
         setError("");
+        nextRefreshMs = Math.max(
+          1000,
+          Math.min((data.refresh_seconds || 5) * 1000, 5000),
+        );
         if (
           data.ultrasound_code &&
           lastPlayedRef.current !== data.ultrasound_code
@@ -116,14 +122,15 @@ export function AttendanceBroadcastPanel({
       } catch (e) {
         if (!active) return;
         setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (active) timer = window.setTimeout(() => void refresh(), nextRefreshMs);
       }
     };
 
     void refresh();
-    timer = window.setInterval(refresh, 4000);
     return () => {
       active = false;
-      window.clearInterval(timer);
+      if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [sessionId]);
 
@@ -175,14 +182,33 @@ export function AttendanceBroadcastPanel({
           </p>
         )}
 
-        <div className="mt-5 flex justify-center rounded-2xl bg-white p-5">
-          <QRCodeSVG
-            value={qrValue}
-            size={260}
-            level="H"
-            marginSize={1}
-            title="MUU dinamik davomat QR kodi"
-          />
+        <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(15rem,0.8fr)]">
+          <div className="flex justify-center rounded-2xl bg-white p-5">
+            <QRCodeSVG
+              value={qrValue}
+              size={260}
+              level="H"
+              marginSize={1}
+              title="MUU dinamik davomat QR kodi"
+            />
+          </div>
+          <div className="flex min-h-40 flex-col justify-center rounded-2xl border bg-muted/40 p-5 text-center">
+            <span className="text-sm font-medium text-muted-foreground">
+              QR ishlamasa — 8 belgili kod
+            </span>
+            <strong
+              aria-live="polite"
+              aria-label="Qo‘lda kiritish kodi"
+              className="mt-2 font-mono text-3xl font-bold tracking-[0.2em] sm:text-4xl"
+            >
+              {challenge?.is_open && challenge.manual_code
+                ? challenge.manual_code
+                : "••••••••"}
+            </strong>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Ustoz kodni talabaga aytadi. Kod har {challenge?.refresh_seconds || 5} soniyada avtomatik yangilanadi.
+            </p>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -239,7 +265,7 @@ export function AttendanceBroadcastPanel({
               {challenge?.course_code} · QR kod 5 soniyada yangilanadi.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex min-h-[520px] items-center justify-center rounded-3xl bg-white p-8">
+          <div className="flex min-h-[520px] flex-col items-center justify-center gap-5 rounded-3xl bg-white p-8">
             <QRCodeSVG
               value={qrValue}
               size={460}
@@ -247,6 +273,11 @@ export function AttendanceBroadcastPanel({
               marginSize={1}
               title="MUU fullscreen davomat QR kodi"
             />
+            {challenge?.is_open && challenge.manual_code && (
+              <p aria-live="polite" className="font-mono text-3xl font-bold tracking-[0.2em]">
+                {challenge.manual_code}
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
