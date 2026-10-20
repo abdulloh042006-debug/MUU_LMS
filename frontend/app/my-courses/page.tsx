@@ -26,15 +26,14 @@ const days = [
   "Shanba",
 ];
 
-  const periods = [
+const periods = [
   { period: 1, label: "1-para", time: "08:00–09:10" },
   { period: 2, label: "2-para", time: "09:20–10:30" },
   { period: 3, label: "3-para", time: "10:40–11:50" },
-  { period: 4, label: "4-para", time: "12:30–13:40" },
-  { period: 5, label: "5-para", time: "13:50–15:00" },
-  { period: 6, label: "6-para", time: "15:10–16:20" },
-  { period: 7, label: "7-para", time: "16:30–17:40" },
-  ];
+  { period: 4, label: "4-para", time: "12:00–13:10" },
+  { period: 5, label: "5-para", time: "13:20–14:30" },
+  { period: 6, label: "6-para", time: "14:40–15:50" },
+];
 
 const campusZone = "Asia/Tashkent";
 const campusCalendar = new Intl.DateTimeFormat("en-US", {
@@ -212,8 +211,8 @@ export default function LessonsPage() {
       new Date(event.end_time).getTime() > currentTime,
   );
 
-  async function startLesson(event: any, testMode = false) {
-    if (!testMode && lessonAvailability(event, Date.now()) !== "ready") {
+  async function startLesson(event: any) {
+    if (lessonAvailability(event, Date.now()) !== "ready") {
       setError("Darsni faqat boshlanishidan 10 daqiqa oldin yoki dars davomida boshlash mumkin.");
       return;
     }
@@ -222,7 +221,7 @@ export default function LessonsPage() {
     try {
       await unlockAttendanceAudio();
       const location = await getLocation();
-      const response = await api.startLessonAttendance(event.id, location, testMode);
+      const response = await api.startLessonAttendance(event.id, location);
       router.push(
         `/lessons/${event.id}?session=${response.session.id}`,
       );
@@ -310,23 +309,13 @@ export default function LessonsPage() {
                 {activeEvent.for_group || activeEvent.course_title} · {activeEvent.room || "Xona belgilanmagan"}
               </p>
             </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  disabled={starting !== null}
-                  onClick={() => startLesson(activeEvent)}
-                >
-                  <Play size={16} />
-                  {starting === activeEvent.id ? "Boshlanmoqda…" : "Darsni boshlash"}
-                </Button>
-                <Button
-                  variant="outline"
-                  disabled={starting !== null}
-                  onClick={() => startLesson(activeEvent, true)}
-                >
-                  <Play size={16} />
-                  Test uchun hozir boshlash
-                </Button>
-              </div>
+            <Button
+              disabled={starting !== null}
+              onClick={() => startLesson(activeEvent)}
+            >
+              <Play size={16} />
+              {starting === activeEvent.id ? "Boshlanmoqda…" : "Darsni boshlash"}
+            </Button>
           </div>
         )}
 
@@ -404,31 +393,21 @@ export default function LessonsPage() {
                               </span>
                             </div>
                             {teacher ? (
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  size="sm"
-                                  disabled={starting !== null || lessonAvailability(event, currentTime) !== "ready"}
-                                  onClick={() => startLesson(event)}
-                                >
-                                  <Play size={14} />
-                                  {starting === event.id ? "..." : lessonButtonLabel(event, currentTime, true)}
-                                </Button>
-                                {lessonAvailability(event, currentTime) !== "ready" && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={starting !== null}
-                                    onClick={() => startLesson(event, true)}
-                                  >
-                                    Test uchun hozir boshlash
-                                  </Button>
-                                )}
-                              </div>
+                              <Button
+                                size="sm"
+                                disabled={starting !== null || lessonAvailability(event, currentTime) !== "ready"}
+                                onClick={() => startLesson(event)}
+                              >
+                                <Play size={14} />
+                                {starting === event.id ? "..." : lessonButtonLabel(event, currentTime, true)}
+                              </Button>
                             ) : (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => router.push(`/courses?course=${event.course}`)}
+                                onClick={() =>
+                                  router.push(`/courses?course=${event.course}`)
+                                }
                               >
                                 Ochish
                               </Button>
@@ -499,30 +478,17 @@ export default function LessonsPage() {
                                 </div>
                               </div>
                               {teacher ? (
-                                <div className="mt-3 flex flex-col gap-2">
-                                  <Button
-                                    size="sm"
-                                    className="w-full"
-                                    disabled={starting !== null || lessonAvailability(event, currentTime) !== "ready"}
-                                    onClick={() => startLesson(event)}
-                                  >
-                                    <Play size={14} />
-                                    {starting === event.id
-                                      ? "Boshlanmoqda…"
-                                      : lessonButtonLabel(event, currentTime)}
-                                  </Button>
-                                  {lessonAvailability(event, currentTime) !== "ready" && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="w-full"
-                                      disabled={starting !== null}
-                                      onClick={() => startLesson(event, true)}
-                                    >
-                                      Test uchun hozir boshlash
-                                    </Button>
-                                  )}
-                                </div>
+                                <Button
+                                  size="sm"
+                                  className="mt-3 w-full"
+                                  disabled={starting !== null || lessonAvailability(event, currentTime) !== "ready"}
+                                  onClick={() => startLesson(event)}
+                                >
+                                  <Play size={14} />
+                                  {starting === event.id
+                                    ? "Boshlanmoqda…"
+                                    : lessonButtonLabel(event, currentTime)}
+                                </Button>
                               ) : (
                                 <Button
                                   size="sm"

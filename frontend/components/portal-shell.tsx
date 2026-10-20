@@ -55,16 +55,9 @@ const links = [
     href: "/profile",
     label: "Profil",
     icon: UserRound,
-    id: "profile",
+    id: "overview",
   },
 ];
-const demoSectionLinks = new Set([
-  "/dashboard",
-  "/my-courses",
-  "/assignments",
-  "/calendar",
-  "/attendance",
-]);
 export function Brand() {
   return (
     <div className="mu-brand">
@@ -129,9 +122,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
           return (
             <Link
               key={href}
-              href={
-                demo && demoSectionLinks.has(href) ? `/preview#${id}` : href
-              }
+              href={demo ? `/preview#${id}` : href}
               className={isActive ? "active" : ""}
               aria-current={isActive ? "page" : undefined}
               onClick={() => setOpen(false)}
@@ -279,21 +270,21 @@ export function PortalShell({ children }: { children: ReactNode }) {
               <span>Topshiriqlar</span>
             </Link>
             <Link
-              href="/attendance"
+              href={demo ? "/preview#overview" : "/attendance"}
               className={path.startsWith("/attendance") ? "active" : ""}
             >
               <ScanLine />
               <span>Skaner</span>
             </Link>
             <Link
-              href="/notifications"
+              href={demo ? "/preview#overview" : "/notifications"}
               className={path.startsWith("/notifications") ? "active" : ""}
             >
               <Bell />
               <span>Xabarlar</span>
             </Link>
             <Link
-              href="/profile"
+              href={demo ? "/preview#overview" : "/profile"}
               className={path.startsWith("/profile") ? "active" : ""}
             >
               <UserRound />

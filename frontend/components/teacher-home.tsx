@@ -74,14 +74,9 @@ export function TeacherHome() {
           </h1>
           <p>Bugungi darslar va tekshirishni kutayotgan ishlar.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild>
-            <Link href="/manage?tab=courses&new=1">+ Yangi dars qo‘shish</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/manage">Boshqaruvni ochish</Link>
-          </Button>
-        </div>
+        <Button asChild>
+          <Link href="/manage">Boshqaruvni ochish</Link>
+        </Button>
       </div>
 
       {error && (

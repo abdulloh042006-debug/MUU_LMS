@@ -150,7 +150,6 @@ export default function Login() {
               className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-medium text-primary hover:underline"
               onClick={() => {
                 clearError();
-                setShow(false);
                 setRecoveryOpen(true);
               }}
             >
@@ -224,7 +223,6 @@ export default function Login() {
               type="button"
               className="mt-4 w-full text-center text-sm font-medium text-primary hover:underline"
               onClick={() => {
-                setShow(false);
                 setRecoveryOpen(false);
                 setRecoveryMessage("");
                 setRecoveryError("");

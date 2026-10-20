@@ -135,9 +135,8 @@ class AttendanceSession(models.Model):
     starts_at = models.DateTimeField()
     topic = models.CharField(max_length=200)
     automated_checkin = models.BooleanField(default=False)
-    is_test_mode = models.BooleanField(default=False)
-    attendance_minutes = models.PositiveSmallIntegerField(default=60, validators=[MinValueValidator(2), MaxValueValidator(60)])
-    late_after_minutes = models.PositiveSmallIntegerField(default=2, validators=[MinValueValidator(1), MaxValueValidator(59)])
+    attendance_minutes = models.PositiveSmallIntegerField(default=3, validators=[MinValueValidator(2), MaxValueValidator(15)])
+    late_after_minutes = models.PositiveSmallIntegerField(default=2, validators=[MinValueValidator(1), MaxValueValidator(14)])
     location_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     location_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     location_radius_m = models.PositiveSmallIntegerField(default=80, validators=[MinValueValidator(10), MaxValueValidator(500)])
@@ -151,7 +150,7 @@ class AttendanceSession(models.Model):
 
 class AttendanceRecord(models.Model):
     STATUS_CHOICES = [('present', 'Qatnashdi'), ('absent', 'Qatnashmadi'), ('late', 'Kechikdi'), ('excused', 'Sababli')]
-    SOURCE_CHOICES = [('manual', 'Qo‘lda'), ('qr', 'QR'), ('ultrasound', 'Ultrasound'), ('manual_code', 'Qisqa kod'), ('system', 'Tizim')]
+    SOURCE_CHOICES = [('manual', 'Qo‘lda'), ('qr', 'QR'), ('ultrasound', 'Ultrasound'), ('system', 'Tizim')]
     session = models.ForeignKey(AttendanceSession, on_delete=models.CASCADE, related_name='records')
     student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='attendance_records')
     status = models.CharField(max_length=12, choices=STATUS_CHOICES)
@@ -166,12 +165,6 @@ class AttendanceRecord(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['session', 'student'], name='unique_attendance_record')]
-
-
-class AttendanceAttemptWindow(models.Model):
-    key = models.CharField(max_length=100, primary_key=True)
-    window = models.BigIntegerField()
-    attempts = models.PositiveIntegerField(default=0)
 
 
 class Notification(models.Model):

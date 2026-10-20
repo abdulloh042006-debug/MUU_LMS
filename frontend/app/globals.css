@@ -1201,26 +1201,12 @@ button:active:not(:disabled),
 
 @media (max-width: 1200px) {
   .mu-sidebar {
-    width: 190px;
-    padding: 22px 12px 15px;
+    width: 215px;
+    padding: 25px 15px;
   }
   .portal-body {
-    margin-left: 190px;
-    width: calc(100% - 190px);
-    overflow-x: hidden;
-  }
-  .workspace-page {
-    padding: 24px;
-  }
-  .workspace-heading h1 {
-    font-size: 25px;
-  }
-  .workspace-heading > div {
-    min-width: 0;
-  }
-  .workspace-heading h1,
-  .workspace-heading p:not(.eyebrow) {
-    overflow-wrap: anywhere;
+    margin-left: 215px;
+    width: calc(100% - 215px);
   }
   .mu-brand strong {
     font-size: 12px;
@@ -1354,54 +1340,6 @@ button:active:not(:disabled),
     display: none;
   }
 }
-@media (max-width: 900px) {
-  .mu-sidebar {
-    display: none;
-  }
-  .portal-body {
-    flex: 1 1 auto !important;
-    margin-left: 0 !important;
-    width: 100% !important;
-    max-width: 100vw !important;
-    min-width: 0 !important;
-    overflow-x: hidden;
-  }
-  .portal-surface {
-    width: 100% !important;
-    max-width: 100vw;
-    min-width: 0 !important;
-    overflow-x: hidden;
-  }
-  .workspace-page {
-    box-sizing: border-box;
-    position: relative;
-    left: 0 !important;
-    right: auto !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    margin-left: 0 !important;
-    padding-left: 17px;
-    padding-right: 17px;
-  }
-  .attendance-page {
-    overflow-x: hidden;
-  }
-  .attendance-page > *,
-  .workspace-page > *,
-  .workspace-heading,
-  .workspace-heading > div,
-  .attendance-session-row,
-  .attendance-session-row > div {
-    min-width: 0 !important;
-    max-width: 100% !important;
-  }
-  .attendance-session-row > div:last-child button {
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-}
-
 @media (max-width: 767px) {
   .mu-sidebar {
     display: none;
@@ -1409,49 +1347,6 @@ button:active:not(:disabled),
   .portal-body {
     margin-left: 0;
     width: 100%;
-    max-width: 100vw;
-    overflow-x: hidden;
-  }
-  .portal-surface {
-    width: 100%;
-    min-width: 0;
-  }
-  .workspace-page {
-    width: 100%;
-    max-width: 100%;
-    padding: 23px 17px 92px;
-  }
-  .workspace-heading,
-  .workspace-heading > div {
-    width: 100%;
-    min-width: 0;
-  }
-  .workspace-heading h1,
-  .workspace-heading p {
-    overflow-wrap: anywhere;
-  }
-  .attendance-session-row {
-    align-items: stretch;
-  }
-  .attendance-session-row > div:first-child {
-    min-width: 0;
-    width: 100%;
-  }
-  .attendance-session-row > div:last-child {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    flex-direction: column;
-  }
-  .attendance-session-row > div:last-child {
-  gap: 8px;
-  }
-  .attendance-session-row > div:last-child button {
-  width: 100%;
-  min-width: 0;
-  justify-content: center;
-  white-space: normal;
-  line-height: 1.25;
   }
   .mobile-menu {
     display: inline-flex !important;
@@ -1461,15 +1356,7 @@ button:active:not(:disabled),
     padding: 0 16px;
   }
   .header-breadcrumb {
-    display: none;
-  }
-  .mobile-lms-title {
-    display: inline-flex;
-    align-items: center;
-    color: #172743;
-    font-family: Sora, Inter, sans-serif;
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 12px;
   }
   .header-breadcrumb > span {
     margin: 0 8px;
@@ -1803,18 +1690,6 @@ button:active:not(:disabled),
   min-height: 36px;
   font-size: 14px;
 }
-
-/* Keep attendance panels inside the available viewport without shrinking the QR. */
-@media (max-width: 1300px) {
-  .attendance-layout {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
-
-  .attendance-layout > * {
-    min-width: 0;
-    max-width: 100%;
-  }
-}
 .subject-tag {
   line-height: 1.5;
   display: block;
@@ -1936,18 +1811,9 @@ button:active:not(:disabled),
 .assignment-head {
   font-size: 10px;
 }
-  .header-breadcrumb {
-    display: none;
-  }
-  .mobile-lms-title {
-    display: inline-flex;
-    align-items: center;
-    color: #172743;
-    font-family: Sora, Inter, sans-serif;
-    font-size: 16px;
-    font-weight: 700;
-  }
-
+.header-breadcrumb {
+  font-size: 12px;
+}
 @media (max-width: 1200px) {
   .dashboard-columns {
     grid-template-columns: minmax(0, 1fr) 250px;
@@ -2919,13 +2785,6 @@ button:active:not(:disabled),
 @media (max-width: 980px) {
   .attendance-summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .workspace-page > .grid {
-    min-width: 0;
-  }
-  .workspace-page > .grid > section,
-  .workspace-page > .grid > aside {
-    min-width: 0;
   }
 }
 @media (max-width: 767px) {

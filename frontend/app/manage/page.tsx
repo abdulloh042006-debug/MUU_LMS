@@ -46,20 +46,6 @@ const campusDate = (value: string) => {
   const part = (type: string) => parts.find((item) => item.type === type)?.value;
   return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
 };
-const DAY_PERIODS: Record<number, [string, string]> = {
-  1: ["08:00", "09:10"],
-  2: ["09:20", "10:30"],
-  3: ["10:40", "11:50"],
-  4: ["12:30", "13:40"],
-  5: ["13:50", "15:00"],
-  6: ["15:10", "16:20"],
-  7: ["16:30", "17:40"],
-};
-const EVENING_PERIODS: Record<number, [string, string]> = {
-  1: ["18:00", "19:10"],
-  2: ["19:20", "20:30"],
-};
-
 const freshLocation = () =>
   new Promise<GeolocationPosition>((resolve, reject) => {
     if (!navigator.geolocation) {
@@ -111,14 +97,9 @@ export default function Management() {
     [notice, setNotice] = useState("");
   const [pendingOnly, setPendingOnly] = useState(true);
   const [calendarType, setCalendarType] = useState("lesson");
-  const [selectedPeriod, setSelectedPeriod] = useState(0);
-  const [shift, setShift] = useState<"day" | "evening">("day");
-  const [lessonDate, setLessonDate] = useState("");
-  const lessonPeriods = shift === "evening" ? EVENING_PERIODS : DAY_PERIODS;
   const [activeTab, setActiveTab] = useState("courses");
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get("tab");
+    const tab = new URLSearchParams(window.location.search).get("tab");
     if (tab && ["courses", "materials", "assignments", "grading", "attendance", "calendar"].includes(tab)) {
       setActiveTab(tab);
     }
@@ -266,15 +247,9 @@ export default function Management() {
         <main className="workspace-page">
           <div className="workspace-heading">
             <div>
-              <p className="eyebrow">
-                {admin ? "ADMINISTRATOR · TA’LIM NAZORATI" : "USTOZ · DARS BOSHQARUVI"}
-              </p>
-              <h1>{admin ? "Ta’lim boshqaruvi" : "Ustoz boshqaruvi"}</h1>
-              <p>
-                {admin
-                  ? "Barcha darslar, ustozlar va LMS jarayonlarini nazorat qiling."
-                  : "O‘zingizning darslaringizni yarating, talabalarni qo‘shing va material joylang."}
-              </p>
+              <p className="eyebrow">TA’LIM JARAYONINI BOSHQARISH</p>
+              <h1>Ustoz kabineti</h1>
+              <p>Dars, talabalar, topshiriqlar va baholash — bir joyda.</p>
             </div>
             <Button
               variant="outline"
@@ -301,16 +276,18 @@ export default function Management() {
                 Dars ma’lumotlari yuklanmoqda…
               </CardContent>
             </Card>
+          ) : !courses.length ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Darslar topilmadi</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
+                <p>Hozircha sizga biriktirilgan dars mavjud emas.</p>
+                {admin && <p>Yangi dars yaratish uchun administrator sifatida darslar bo‘limidan foydalaning.</p>}
+              </CardContent>
+            </Card>
           ) : (
             <>
-              {!courses.length && (
-                <Alert className="mb-5">
-                  <AlertDescription>
-                    Hozircha dars yo‘q. Birinchi darsni “Dars va talabalar”
-                    bo‘limidagi formadan yarating.
-                  </AlertDescription>
-                </Alert>
-              )}
               <div className="course-picker">
                 <Label htmlFor="course-scope">Ishlayotgan darsingiz</Label>
                 <select
@@ -346,14 +323,9 @@ export default function Management() {
                 </TabsList>
                 <TabsContent value="courses">
                   <div className="management-grid">
-                    <Card className="teacher-create-course-card">
+                    <Card>
                       <CardHeader>
-                        <CardTitle>{admin ? "Yangi dars ochish" : "Birinchi darsingizni yarating"}</CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          {admin
-                            ? "Darsni ustozga biriktiring."
-                            : "Dars yaratilgach, unga talabalar va materiallar qo‘shasiz."}
-                        </p>
+                        <CardTitle>Yangi dars</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <form
@@ -403,11 +375,6 @@ export default function Management() {
                                   </option>
                                 ))}
                               </select>
-                              {!teachers.length && (
-                                <p className="text-sm text-muted-foreground">
-                                  Avval Admin boshqaruvi bo‘limida faol ustoz hisobini yarating.
-                                </p>
-                              )}
                             </Field>
                           )}
                           <Button disabled={busy || (admin && !teachers.length)}>
@@ -424,12 +391,6 @@ export default function Management() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="flex flex-col gap-5">
-                        {!course && (
-                          <p className="text-sm text-muted-foreground">
-                            Dars yaratilgach, uning tafsilotlari va talabalar shu
-                            yerda boshqariladi.
-                          </p>
-                        )}
                         {course && (
                           <>
                             <p>
@@ -611,7 +572,7 @@ export default function Management() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                aria-label={`${b.title}ni o���chirish`}
+                                aria-label={`${b.title}ni o‘chirish`}
                                 disabled={busy}
                                 onClick={() =>
                                   remove(`${b.title} o‘chirilsinmi?`, () =>
@@ -927,10 +888,10 @@ export default function Management() {
                             <span className="text-xs text-muted-foreground">Bo‘sh qoldirsangiz, tugma bosilgan vaqtda boshlanadi.</span>
                           </Field>
                           <Field label="Davomat oynasi (daqiqa)">
-                            <Input aria-label="Davomat oynasi" name="attendance_minutes" type="number" min={2} max={60} defaultValue={60} required />
+                            <Input aria-label="Davomat oynasi" name="attendance_minutes" type="number" min={2} max={15} defaultValue={10} required />
                           </Field>
                           <p className="text-sm text-muted-foreground">
-                            Boshlashda auditoriya lokatsiyasi olinadi. Davomat oynasini 2–60 daqiqa oralig‘ida tanlang. Test uchun 60 daqiqa qo‘yildi.
+                            Boshlashda auditoriya lokatsiyasi olinadi. Davomat oynasini 2–15 daqiqa oralig‘ida tanlang.
                           </p>
                           <Button disabled={busy || !canCreate}>
                             Davomatni boshlash
@@ -1076,16 +1037,8 @@ export default function Management() {
                               period: calendarType === "lesson" ? Number(d.get("period")) : null,
                               room: d.get("room"),
                               for_group: d.get("for_group"),
-                          start_time: campusStamp(
-                            calendarType === "lesson"
-                              ? `${lessonDate}T${lessonPeriods[selectedPeriod]?.[0] || "08:00"}`
-                              : d.get("start_time"),
-                          ),
-                          end_time: campusStamp(
-                            calendarType === "lesson"
-                              ? `${lessonDate}T${lessonPeriods[selectedPeriod]?.[1] || "09:10"}`
-                              : d.get("end_time"),
-                          ),
+                              start_time: campusStamp(d.get("start_time")),
+                              end_time: campusStamp(d.get("end_time")),
                             }),
                           )}
                         >
@@ -1110,41 +1063,20 @@ export default function Management() {
                             </select>
                           </Field>
                           {calendarType === "lesson" && (
-                            <>
-                            <Field label="Smena">
-                              <select
-                                aria-label="Smena"
-                                value={shift}
-                                onChange={(event) => {
-                                  setShift(event.target.value as "day" | "evening");
-                                  setSelectedPeriod(0);
-                                }}
-                                className="native-select"
-                              >
-                                <option value="day">Kunduzgi smena</option>
-                                <option value="evening">Kechki smena</option>
-                              </select>
-                            </Field>
                             <Field label="Dars parasi">
                               <select
                                 aria-label="Dars parasi"
                                 name="period"
                                 className="native-select"
-                            value={selectedPeriod || ""}
-                            onChange={(event) => setSelectedPeriod(Number(event.target.value))}
-                            required
-                          >
-                            <option value="" disabled>Parani tanlang</option>
-                            {Object.keys(lessonPeriods).map((key) => {
-                              const period = Number(key);
-                              return <option key={period} value={period}>{period}-para · {lessonPeriods[period][0]}–{lessonPeriods[period][1]}</option>;
-                            })}
-                          </select>
-                          <p className="text-xs text-muted-foreground">
-                            Boshlanish va tugash vaqti para jadvalidan avtomatik olinadi.
-                          </p>
+                                defaultValue=""
+                                required
+                              >
+                                <option value="" disabled>Parani tanlang</option>
+                                {[1, 2, 3, 4, 5, 6].map((period) => (
+                                  <option key={period} value={period}>{period}-para</option>
+                                ))}
+                              </select>
                             </Field>
-                            </>
                           )}
                           <Field label="Xona (ixtiyoriy)">
                             <Input aria-label="Tadbir xonasi" name="room" maxLength={50} />
@@ -1152,37 +1084,22 @@ export default function Management() {
                           <Field label="Guruh (ixtiyoriy)">
                             <Input aria-label="Tadbir guruhi" name="for_group" maxLength={100} />
                           </Field>
-                  {calendarType === "lesson" ? (
-                    <Field label="Dars sanasi">
-                      <Input
-                        aria-label="Dars sanasi"
-                        name="lesson_date"
-                        type="date"
-                        value={lessonDate}
-                        onChange={(event) => setLessonDate(event.target.value)}
-                        required
-                      />
-                    </Field>
-                  ) : (
-                    <Field label="Boshlanish (Toshkent vaqti)">
-                      <Input
-                        aria-label="Tadbir boshlanishi"
-                        name="start_time"
-                        type="datetime-local"
-                        required
-                      />
-                    </Field>
-                  )}
-                          {calendarType !== "lesson" && (
-                            <Field label="Tugash (Toshkent vaqti)">
-                              <Input
-                                aria-label="Tadbir tugashi"
-                                name="end_time"
-                                type="datetime-local"
-                                required
-                              />
-                            </Field>
-                          )}
+                          <Field label="Boshlanish (Toshkent vaqti)">
+                            <Input
+                              aria-label="Tadbir boshlanishi"
+                              name="start_time"
+                              type="datetime-local"
+                              required
+                            />
+                          </Field>
+                          <Field label="Tugash (Toshkent vaqti)">
+                            <Input
+                              aria-label="Tadbir tugashi"
+                              name="end_time"
+                              type="datetime-local"
+                              required
+                            />
+                          </Field>
                           <Field label="Izoh">
                             <Textarea
                               aria-label="Tadbir izohi"
