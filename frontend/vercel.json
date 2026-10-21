@@ -1,6 +1,7 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "installCommand": "corepack pnpm@11.25.0 install --frozen-lockfile"
+  "installCommand": "corepack pnpm@11.25.0 install --frozen-lockfile",
+  "buildCommand": "corepack pnpm@11.25.0 build"
 
 }
