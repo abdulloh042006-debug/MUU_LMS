@@ -1,6 +1,7 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "buildCommand": "pnpm --dir frontend build",
-  "installCommand": "corepack pnpm@11.25.0 --dir frontend install --frozen-lockfile"
+  "buildCommand": "corepack pnpm@11.25.0 --dir frontend build",
+  "installCommand": "corepack pnpm@11.25.0 --dir frontend install --frozen-lockfile",
+  "outputDirectory": "frontend/.next"
 }
