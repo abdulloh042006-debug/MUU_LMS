@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { requestAccountRecovery } from "@/lib/api-service";
+import { DEMO_MODE } from "@/lib/demo-api";
 import { AuthLayout } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,17 +146,49 @@ export default function Login() {
               </Button>
             </form>
 
-            <button
-              type="button"
-              className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-medium text-primary hover:underline"
-              onClick={() => {
-                clearError();
-                setRecoveryOpen(true);
-              }}
-            >
-              <KeyRound size={16} />
-              Login yoki parolni unutdingizmi?
-            </button>
+            {DEMO_MODE && (
+              <div className="mt-5 rounded-lg border border-dashed p-4">
+                <p className="mb-3 text-center text-sm font-medium">
+                  Demo rejim — parolsiz kirish
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    ["talaba_demo", "Talaba"],
+                    ["ustoz_demo", "Ustoz"],
+                    ["admin_demo", "Admin"],
+                  ].map(([name, label]) => (
+                    <Button
+                      key={name}
+                      type="button"
+                      variant="outline"
+                      disabled={isLoading}
+                      onClick={async () => {
+                        clearError();
+                        try {
+                          await login(name, "demo");
+                        } catch {}
+                      }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!DEMO_MODE && (
+              <button
+                type="button"
+                className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-medium text-primary hover:underline"
+                onClick={() => {
+                  clearError();
+                  setRecoveryOpen(true);
+                }}
+              >
+                <KeyRound size={16} />
+                Login yoki parolni unutdingizmi?
+              </button>
+            )}
 
             <div className="auth-separator" />
             <p className="auth-support">

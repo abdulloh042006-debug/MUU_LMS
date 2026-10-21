@@ -1,4 +1,5 @@
 import { config } from "./config";
+import { DEMO_MODE, DemoError, demoDownload, demoFetch, demoLogout, demoRestoreSession } from "./demo-api";
 import type { ClientEnvironment, ClientFailureReason } from "./attendance-client-helpers";
 
 export class ApiRequestError extends Error {
@@ -24,6 +25,14 @@ export function clearAccessToken() {
 }
 
 async function refreshToken() {
+  if (DEMO_MODE) {
+    await demoRestoreSession().catch(() => {
+      clearAccessToken();
+      throw new Error("Sessiya tugadi. Qayta kiring.");
+    });
+    setAccessToken("demo-token");
+    return;
+  }
   if (!refreshing)
     refreshing = (async () => {
       const response = await fetch("/api/token/refresh/", {
@@ -48,6 +57,11 @@ export async function restoreSession() {
 }
 
 export async function logoutSession() {
+  if (DEMO_MODE) {
+    await demoLogout();
+    clearAccessToken();
+    return;
+  }
   try {
     await fetch("/api/logout/", {
       method: "POST",
@@ -65,6 +79,15 @@ async function fetchAPI(
   options: RequestInit = {},
   retry = true,
 ): Promise<any> {
+  if (DEMO_MODE) {
+    try {
+      return await demoFetch(endpoint, options);
+    } catch (error) {
+      if (error instanceof DemoError)
+        throw new ApiRequestError(error.message, error.status);
+      throw error;
+    }
+  }
   const method = (options.method ?? "GET").toUpperCase();
   const readOnlyRequest = method === "GET" || method === "HEAD";
   const headers = new Headers(options.headers);
@@ -224,6 +247,7 @@ export async function testConnection() {
 }
 
 export async function downloadFile(path: string, retry = true): Promise<void> {
+  if (DEMO_MODE) return demoDownload(path);
   const url = new URL(path, window.location.origin);
   if (!url.pathname.startsWith("/media/"))
     throw new Error("Fayl manzili noto‘g‘ri.");
