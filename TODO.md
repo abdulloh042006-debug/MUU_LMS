@@ -4,7 +4,21 @@ Qoida: har bir bosqichdan keyin GitHub'ga push qilinadi, nima qilingani va keyin
 
 ## Hozir bajarilayotgan ish
 
-- [ ] Brauzerda attendance oqimini (QR skan, kod, ultrasound fallback) backend bilan birga tekshirish
+- [ ] Sahifalardagi tugmalarni bosib (topshiriq yuborish, baho qo'yish, davomat) amaliy tekshirish
+- [ ] Topilgan xatolarni tuzatish va qayta tekshirish
+
+## Neon integratsiyasi
+
+- [x] Neon integratsiyasi ulandi va status tekshirildi
+- [x] Neon ulanishi read-only SQL bilan tekshirildi
+- [x] Django migratsiyalari Neon bazasiga qo'llandi
+- [x] Demo ma'lumotlar Neon bazasiga yuklandi: 24 talaba, 8 fan, 14 haftalik dars va umumiy demo kurs/davomat/topshiriqlar
+- [ ] Neon integratsiyasining avtomatik schema ko'rinishi hali xato qaytarmoqda; amaliy SQL va jadval tekshiruvi ishlayapti
+
+## Yakunlangan attendance tekshiruvi
+
+- [x] QR skan, kod va ultrasound fallback ishlayapti deb qabul qilindi (foydalanuvchi tasdig'i asosida)
+- [x] Attendance oqimi bo'yicha keyingi ishga o'tildi
 
 ## Keyingi rejalar
 
