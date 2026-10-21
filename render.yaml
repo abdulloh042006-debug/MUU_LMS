@@ -1,0 +1,125 @@
+databases:
+  - name: mu-lms-db
+    databaseName: lms
+    user: lms
+    plan: basic-256mb
+    region: frankfurt
+
+services:
+  - type: pserv
+    name: mu-lms-backend
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: DB_HOST
+        fromDatabase:
+          name: mu-lms-db
+          property: host
+      - key: DB_NAME
+        fromDatabase:
+          name: mu-lms-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: mu-lms-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: mu-lms-db
+          property: password
+      - key: DB_PORT
+        fromDatabase:
+          name: mu-lms-db
+          property: port
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "0"
+      - key: ALLOWED_HOSTS
+        value: mu-lms-backend,localhost,127.0.0.1
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: SECURE_SSL_REDIRECT
+        value: "0"
+      - key: SECURE_HSTS_SECONDS
+        value: "0"
+      - key: SECURE_HSTS_INCLUDE_SUBDOMAINS
+        value: "0"
+      - key: SECURE_HSTS_PRELOAD
+        value: "0"
+    disk:
+      name: mu-lms-media
+      mountPath: /app/media
+      sizeGB: 1
+
+  - type: worker
+    name: mu-lms-attendance-worker
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: python manage.py attendance_worker --watch --interval 15
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: mu-lms-db
+          property: host
+      - key: DB_NAME
+        fromDatabase:
+          name: mu-lms-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: mu-lms-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: mu-lms-db
+          property: password
+      - key: DB_PORT
+        fromDatabase:
+          name: mu-lms-db
+          property: port
+      - key: SECRET_KEY
+        fromService:
+          type: pserv
+          name: mu-lms-backend
+          envVarKey: SECRET_KEY
+      - key: TELEGRAM_BOT_TOKEN
+        fromService:
+          type: pserv
+          name: mu-lms-backend
+          envVarKey: TELEGRAM_BOT_TOKEN
+      - key: DEBUG
+        value: "0"
+      - key: ALLOWED_HOSTS
+        value: localhost,127.0.0.1
+      - key: SECURE_SSL_REDIRECT
+        value: "0"
+
+  - type: web
+    name: mu-lms
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    healthCheckPath: /login
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: BACKEND_HOSTPORT
+        fromService:
+          type: pserv
+          name: mu-lms-backend
+          property: hostport
