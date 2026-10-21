@@ -1,6 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
 import os
+import sys
 from urllib.parse import parse_qs, unquote, urlparse
 
 from django.core.exceptions import ImproperlyConfigured
@@ -107,7 +108,14 @@ WSGI_APPLICATION = 'root.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-database_url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+# Django transactions and management commands need a direct Postgres session;
+# prefer Neon unpooled URLs when they are available instead of the transaction pooler.
+database_url = (
+    os.environ.get("DATABASE_URL_UNPOOLED")
+    or os.environ.get("POSTGRES_URL_NON_POOLING")
+    or os.environ.get("DATABASE_URL")
+    or os.environ.get("POSTGRES_URL")
+)
 if database_url:
     parsed_database_url = urlparse(database_url)
     if parsed_database_url.scheme not in {"postgres", "postgresql"}:
@@ -159,6 +167,16 @@ else:
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": os.environ.get("SQLITE_PATH", str(BASE_DIR / "db.sqlite3")),
+        }
+    }
+
+# Django's test runner must use an isolated local database. Running the suite
+# against Neon leaves remote test databases and makes transaction tests flaky.
+if "test" in sys.argv:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
         }
     }
 
