@@ -5,7 +5,7 @@ const demo = process.env.NEXT_PUBLIC_DEMO_MODE === "1"
 
 const nextConfig = {
   output: "standalone",
-  distDir: process.env.NEXT_DIST_DIR || ".next",
+  distDir: demo ? ".next" : process.env.NEXT_DIST_DIR || ".next",
   skipTrailingSlashRedirect: true,
   images: { unoptimized: true },
   async rewrites() {
