@@ -72,6 +72,9 @@ function mkUser(id: number, username: string, fullname: string, role: string, n 
     telegram_connected: false,
     is_active: true,
     must_change_password: false,
+    birth_date: role === "student" ? `200${n % 4 + 5}-${String((n % 12) + 1).padStart(2, "0")}-${String((n * 3) % 27 + 1).padStart(2, "0")}` : null,
+    program: role === "student" ? "IT-NATIONAL (2026–2027)" : "",
+    faculty: role === "student" ? "Axborot texnologiyalari va sun’iy intellekt" : "Axborot texnologiyalari kafedrasi",
   };
 }
 const omit = (row: Row, keys: string[]): Row =>
@@ -289,7 +292,7 @@ events
       location_longitude: null, location_radius_m: 80, max_location_accuracy_m: 100, ended_at: e.end_time,
     });
     students().forEach((s, i) => {
-      const status = s.username === "talaba_demo" ? (sid % 5 === 0 ? "late" : "present") : pickStatus(i, sid);
+      const status = s.username === "talaba_demo" ? (sid % 4 === 1 ? "absent" : sid % 9 === 2 ? "excused" : sid % 5 === 0 ? "late" : "present") : pickStatus(i, sid);
       records.push({
         id: recordId++, session: sid, student: s.id, status, note: status === "excused" ? "Kasallik" : "",
         source: "manual", checked_at: e.start_time, last_seen_at: status === "present" || status === "late" ? e.start_time : null,
@@ -333,20 +336,36 @@ const notifications: Row[] = [
 // ---------- Demo-only bo‘limlar (haqiqiy backendda yo‘q): moliya, murojaatlar, tadbirlar ----------
 const finance = {
   academic_year: "2026–2027",
-  contract_amount: 28_000_000,
-  grant_percent: 50,
-  grant_name: "Akademik grant (GPA 4.5+)",
-  scholarship_monthly: 1_050_000,
-  payments: [
-    { id: 1, date: iso(now - 70 * DAY), title: "Kontrakt — 1-semestr (50%)", amount: 7_000_000, status: "paid" },
-    { id: 2, date: iso(now - 20 * DAY), title: "Kontrakt — 2-chorak", amount: 3_500_000, status: "paid" },
-    { id: 3, date: iso(now + 12 * DAY), title: "Kontrakt — 3-chorak", amount: 3_500_000, status: "due" },
-    { id: 4, date: iso(now + 75 * DAY), title: "Kontrakt — 4-chorak", amount: 3_500_000, status: "upcoming" },
+  contract_amount: 18_000_000,
+  grant_percent: 10,
+  grant_name: "Kirish imtihoni granti",
+  due_amount: 3_300_000,
+  due_date: iso(now + 12 * DAY),
+  breakdown: [
+    { label: "Yillik kontrakt (2026–2027)", amount: 18_000_000 },
+    { label: "1-semestr uchun hisoblangan (50%)", amount: 9_000_000 },
+    { label: "Grant chegirmasi (10%)", amount: -900_000 },
+    { label: "O‘tgan davrdan qoldiq (ortiqcha to‘lov)", amount: -4_800_000 },
   ],
+  operations: [
+    {
+      year: "2026–2027", accrued: 9_000_000, paid: 0,
+      items: [
+        { id: 1, title: "Kontrakt to‘lovi", note: "Ta’lim xizmati · 1-semestr", date: iso(now - 21 * DAY), amount: -9_000_000 },
+        { id: 2, title: "Chegirma (grant 10%)", note: "Kirish imtihoni natijasi", date: iso(now - 21 * DAY), amount: 900_000 },
+      ],
+    },
+    { year: "Oldingi davr", accrued: 0, paid: 0, items: [{ id: 3, title: "O‘tgan davrdan qoldiq", note: "Ortiqcha to‘lov", date: iso(now - 120 * DAY), amount: 4_800_000 }] },
+  ],
+  grants: [
+    { id: 1, title: "2026–2027 · 1-semestr", status: "granted", percent: 10, description: "Kirish imtihoni: matematika 64 ball — avtomatik 10% grant. Shartnoma tasdiqlangan." },
+    { id: 2, title: "Akademik grant (2-semestr)", status: "open", percent: 50, description: "GPA 4.5 va undan yuqori, davomat 90%+ bo‘lsa ariza topshirish mumkin." },
+  ],
+  payments: [{ id: 1, date: iso(now + 12 * DAY), title: "1-semestr qoldig‘i", amount: 3_300_000, status: "due" }],
 };
 const requestRows: Row[] = [
-  { id: 1, type: "Talabalik ma’lumotnomasi", language: "O‘zbek", purpose: "Bank uchun", status: "ready", created_at: iso(now - 9 * DAY), updated_at: iso(now - 7 * DAY), subject: "Ma’lumotnoma so‘rovi", description: "Bank kartasi uchun kerak.", user: 3 },
-  { id: 2, type: "Akademik ma’lumotnoma", language: "Ingliz", purpose: "Almashinuv dasturi", status: "processing", created_at: iso(now - 2 * DAY), updated_at: iso(now - DAY), subject: "Transkript (ingliz tilida)", description: "", user: 3 },
+  { id: 1, kind: "Ma’lumotnoma", document: "O‘qish joyidan ma’lumotnoma", files: [], type: "O‘qish joyidan ma’lumotnoma", language: "O‘zbek", purpose: "Bank uchun", status: "ready", created_at: iso(now - 9 * DAY), updated_at: iso(now - 7 * DAY), subject: "Ma’lumotnoma so‘rovi", description: "Bank kartasi uchun kerak.", user: 3 },
+  { id: 2, kind: "Ma’lumotnoma", document: "Ta’lim tili / taxminiy bitirish xati", files: [], type: "Ta’lim tili / taxminiy bitirish xati", language: "Ingliz", purpose: "Almashinuv dasturi", status: "processing", created_at: iso(now - 2 * DAY), updated_at: iso(now - DAY), subject: "Transkript (ingliz tilida)", description: "", user: 3 },
 ];
 const campusEvents: Row[] = [
   { id: 1, title: "Hackathon: Smart Campus", category: "Texnologiya", starts_at: iso(now + 5 * DAY), location: "Katta zal, A blok", description: "24 soatlik jamoaviy hackathon. Eng yaxshi loyihalar mukofotlanadi.", seats: 80, registered: 54 },
@@ -513,7 +532,7 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
   if (at("finance")) return finance;
   if (seg[0] === "requests") {
     if (method === "POST") {
-      const r: Row = { id: requestRows.length + 1, type: String(body.type || "Boshqa"), language: String(body.language || "O‘zbek"), purpose: String(body.purpose || ""), subject: String(body.subject || ""), description: String(body.description || ""), status: "new", created_at: iso(Date.now()), updated_at: iso(Date.now()), user: user.id };
+      const r: Row = { id: requestRows.length + 1, kind: String(body.kind || "Ma’lumotnoma"), document: String(body.document || ""), phone: String(body.phone || ""), files: Array.isArray(body.files) ? body.files : [], type: String(body.document || body.type || "Boshqa"), language: String(body.language || "O‘zbek"), purpose: String(body.purpose || ""), subject: String(body.subject || ""), description: String(body.description || ""), status: "new", created_at: iso(Date.now()), updated_at: iso(Date.now()), user: user.id };
       requestRows.unshift(r);
       return r;
     }
@@ -807,7 +826,7 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
       return {
         session: s.id, course: s.course, course_code: courseById(s.course)?.code, course_title: courseTitle(s.course), topic: s.topic,
         manual_code: "12345678", qr_proof: `demo-qr-${s.id}-${Math.floor(Date.now() / 15000)}`,
-        ultrasound_code: `demo-us-${s.id}`, refresh_seconds: 15, starts_at: s.starts_at, late_after_at: iso(start + s.late_after_minutes * MIN),
+        ultrasound_code: ((s.id * 2654435761 + Math.floor(Date.now() / 15000) * 40503) >>> 0).toString(16).padStart(8, "0"), refresh_seconds: 15, starts_at: s.starts_at, late_after_at: iso(start + s.late_after_minutes * MIN),
         check_in_ends_at: iso(start + s.attendance_minutes * MIN), lesson_ends_at: iso(start + 70 * MIN), server_time: iso(Date.now()), is_open: true,
       };
     }

@@ -3,7 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { Award, BadgeCheck, Building2, GraduationCap, IdCard, KeyRound, LogOut, Mail, Pencil, Phone, ShieldCheck, UserCheck, Users } from "lucide-react";
+import { AtSign, Award, BadgeCheck, BellRing, Building2, Cake, GraduationCap, IdCard, KeyRound, LogOut, Mail, MessageSquareText, Pencil, Phone, ShieldCheck, UserCheck, Users } from "lucide-react";
+import Link from "next/link";
 import { ProtectedRoute } from "@/components/protected-route";
 import { useAuth } from "@/contexts/auth-context";
 import { changePassword, getMyAttendance, getMyGrades, updateUserProfile } from "@/lib/api-service";
@@ -51,6 +52,17 @@ function Content() {
   const [conf, setConf] = useState("");
   const [pStatus, setPStatus] = useState<Status>(null);
   const [pBusy, setPBusy] = useState(false);
+
+  const [push, setPush] = useState<string>("default");
+  useEffect(() => {
+    if (typeof Notification !== "undefined") setPush(Notification.permission);
+  }, []);
+  async function enablePush() {
+    if (typeof Notification === "undefined") return setPush("denied");
+    const r = await Notification.requestPermission();
+    setPush(r);
+    if (r === "granted") new Notification("Millat Umidi LMS", { body: "Bildirishnomalar yoqildi." });
+  }
 
   const { data } = useLoad(() => settle({ grades: student ? getMyGrades : async () => [], att: student ? getMyAttendance : async () => [] }), [student]);
 
@@ -140,7 +152,7 @@ function Content() {
         <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat label="O‘rtacha ball" value={avg ?? "—"} icon={Award} tone="green" />
           <Stat label="Davomat" value={rate === null ? "—" : `${rate}%`} icon={UserCheck} tone="blue" />
-          <Stat label="Kurs" value="1-kurs" icon={GraduationCap} tone="violet" />
+          <Stat label="Kurs" value="1-kurs" hint={user?.program} icon={GraduationCap} tone="violet" />
           <Stat label="Holat" value="Faol" icon={BadgeCheck} tone="gold" />
         </div>
       )}
@@ -150,7 +162,10 @@ function Content() {
           <div className="divide-y">
             {student && <Info icon={IdCard} label="Talaba ID" value={user?.student_id} />}
             {student && <Info icon={Users} label="Guruh" value={user?.group_code} />}
-            {student && <Info icon={Building2} label="Fakultet" value="Axborot texnologiyalari" />}
+            {student && <Info icon={GraduationCap} label="Ta’lim yo‘nalishi" value={user?.program} />}
+            <Info icon={Building2} label={student ? "Fakultet" : "Kafedra"} value={user?.faculty} />
+            <Info icon={AtSign} label="Foydalanuvchi nomi" value={user?.username} />
+            {student && <Info icon={Cake} label="Tug‘ilgan sana" value={user?.birth_date ? new Date(user.birth_date).toLocaleDateString("uz-UZ", { day: "numeric", month: "long", year: "numeric" }) : null} />}
             <Info icon={Mail} label="Email" value={user?.email} />
             <Info icon={Phone} label="Telefon" value={user?.phone_number} />
             <Info icon={ShieldCheck} label="Telegram" value={user?.telegram_connected ? "Ulangan" : "Ulanmagan"} />
@@ -170,6 +185,25 @@ function Content() {
             </Panel>
           )}
           {!editing && status?.kind === "success" && <StatusLine s={status} />}
+
+          <Panel title="Sozlamalar" icon={BellRing}>
+            <div className="space-y-2.5">
+              <button onClick={enablePush} className="flex w-full items-center gap-3 rounded-xl border p-3.5 text-left transition hover:bg-slate-50">
+                <IconChip icon={BellRing} tone="gold" size={36} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-navy-900">Bildirishnomalarni yoqish</span>
+                  <span className="block text-xs text-muted-foreground">{push === "granted" ? "Yoqilgan — yangi baho va muddatlar haqida xabar olasiz" : push === "denied" ? "Brauzer sozlamalarida ruxsat bering" : "Telefon/brauzerga xabarlar"}</span>
+                </span>
+                <Pill tone={push === "granted" ? "green" : "neutral"}>{push === "granted" ? "Yoqilgan" : "O‘chiq"}</Pill>
+              </button>
+              {student && (
+                <Link href="/requests" className="flex items-center gap-3 rounded-xl border p-3.5 transition hover:bg-slate-50">
+                  <IconChip icon={MessageSquareText} tone="blue" size={36} />
+                  <span className="flex-1 text-sm font-semibold text-navy-900">Murojaatlarim</span>
+                </Link>
+              )}
+            </div>
+          </Panel>
 
           <Panel title="Xavfsizlik" description="Parolni vaqti-vaqti bilan yangilab turing." icon={KeyRound}>
             <form onSubmit={savePassword} className="space-y-4">

@@ -19,8 +19,8 @@ function Content() {
   const [dlError, setDlError] = useState("");
 
   const books = useMemo(() => ((data ?? []) as any[]).filter((b) => !course || String(b.course) === course), [data, course]);
-  const subjects = useMemo(() => [...new Set(books.map((b) => b.subject).filter(Boolean))] as string[], [books]);
-  const shown = books.filter((b) => (subject === "all" || b.subject === subject) && `${b.title} ${b.subject} ${b.course_title}`.toLowerCase().includes(q.toLowerCase()));
+  const subjects = useMemo(() => [...new Set(books.map((b) => b.course_title).filter(Boolean))] as string[], [books]);
+  const shown = books.filter((b) => (subject === "all" || b.course_title === subject) && `${b.title} ${b.subject} ${b.course_title}`.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <Page>
@@ -39,7 +39,7 @@ function Content() {
         <div className="no-scrollbar -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0">
           {["all", ...subjects].map((s) => (
             <button key={s} onClick={() => setSubject(s)} className={cn("whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-semibold transition", subject === s ? "border-navy-700 bg-navy-700 text-white" : "bg-white text-slate-600 hover:border-navy-300")}>
-              {s === "all" ? "Hammasi" : s}
+              {s === "all" ? `Hammasi · ${books.length}` : `${s} · ${books.filter((b) => b.course_title === s).length}`}
             </button>
           ))}
         </div>

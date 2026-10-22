@@ -3,7 +3,8 @@
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, ClipboardList, Search } from "lucide-react";
+import { CalendarPlus, CheckCircle2, ClipboardList, Search } from "lucide-react";
+import { downloadIcs } from "@/lib/ics";
 import { ProtectedRoute } from "@/components/protected-route";
 import { getAssignments } from "@/lib/api-service";
 import { Empty, ErrorNote, IconChip, Page, PageHeader, PageSkeleton, Pill, Segmented, useLoad } from "@/components/mu/kit";
@@ -45,10 +46,18 @@ function Inner() {
         title="Vazifalar markazi"
         description="Muddatlar bo‘yicha tartiblangan topshiriqlaringiz."
         actions={
+          <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+          <button
+            onClick={() => downloadIcs(all.filter(isTodo).map((a) => ({ id: a.id, title: `Dedlayn: ${a.title}`, start: a.due_date, description: a.course_title })))}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-white px-4 text-sm font-semibold text-navy-700 shadow-card hover:bg-navy-50"
+          >
+            <CalendarPlus size={16} /> Taqvimga qo‘shish
+          </button>
           <label className="flex h-10 w-full items-center gap-2 rounded-xl border bg-white px-3 shadow-card md:w-64">
             <Search size={16} className="text-slate-400" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Qidirish…" className="w-full bg-transparent text-sm outline-none" />
           </label>
+          </div>
         }
       />
       <Segmented

@@ -4,7 +4,11 @@ import { useMemo } from "react";
 import Link from "next/link";
 import {
   Award,
+  Bell,
   BookOpen,
+  CalendarHeart,
+  CalendarPlus,
+  MessageSquareText,
   CalendarDays,
   ClipboardList,
   Clock,
@@ -25,6 +29,7 @@ import {
   getMyGrades,
 } from "@/lib/api-service";
 import { useAuth } from "@/contexts/auth-context";
+import { downloadIcs } from "@/lib/ics";
 import { Empty, Page, PageSkeleton, Panel, Pill, Progress, Ring, SeeAll, Stat, settle, useLoad, IconChip } from "@/components/mu/kit";
 import { courseColor, dayKey, fmtDay, fmtFull, fmtTime, greeting, money, timeLeft } from "@/lib/format";
 
@@ -124,6 +129,31 @@ export function LMSDashboard() {
             </div>
           </section>
 
+          {/* Xizmatlar */}
+          <section aria-label="Xizmatlar">
+            <div className="grid grid-cols-3 gap-2 md:grid-cols-9">
+              {[
+                ["/calendar", "Jadval", CalendarDays, "bg-sky-50 text-sky-700"],
+                ["/my-courses", "Kurslar", GraduationCap, "bg-navy-50 text-navy-700"],
+                ["/grades", "Baholar", Award, "bg-emerald-50 text-emerald-700"],
+                ["/materials", "Materiallar", BookOpen, "bg-violet-50 text-violet-700"],
+                ["/attendance", "Davomat", UserCheck, "bg-cyan-50 text-cyan-700"],
+                ["/events", "Tadbirlar", CalendarHeart, "bg-pink-50 text-pink-700"],
+                ["/requests", "Murojaat", MessageSquareText, "bg-amber-50 text-amber-700"],
+                ["/finance", "Moliya", Wallet, "bg-gold-100 text-gold-800"],
+                ["/notifications", "Xabarlar", Bell, "bg-rose-50 text-rose-700"],
+              ].map(([href, label, Icon, cls]) => {
+                const I = Icon as typeof Bell;
+                return (
+                  <Link key={href as string} href={href as string} className="flex flex-col items-center gap-1.5 rounded-2xl border bg-white p-2.5 text-center shadow-card transition hover:-translate-y-0.5 hover:shadow-lift">
+                    <span className={`grid size-10 place-items-center rounded-xl ${cls}`}><I size={19} /></span>
+                    <span className="w-full truncate text-[11px] font-medium text-navy-900">{label as string}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+
           {/* KPI */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Stat label="Topshiriqlar" value={view.todo.length} hint="bajarilishi kerak" icon={ClipboardList} tone="amber" href="/assignments" />
@@ -205,7 +235,25 @@ export function LMSDashboard() {
             </div>
 
             <div className="space-y-6">
-              <Panel title="Yaqin muddatlar" icon={ClipboardList} action={<SeeAll href="/assignments" />}>
+              <Panel
+                title="Yaqin muddatlar"
+                icon={ClipboardList}
+                action={
+                  <div className="flex items-center gap-1">
+                    {view.todo.length > 0 && (
+                      <button
+                        onClick={() => downloadIcs(view.todo.map((a) => ({ id: a.id, title: `Dedlayn: ${a.title}`, start: a.due_date, description: a.course_title })))}
+                        className="grid size-8 place-items-center rounded-lg text-navy-600 hover:bg-navy-50"
+                        aria-label="Muddatlarni taqvimga qo‘shish"
+                        title="Google/Apple taqvimiga qo‘shish (.ics)"
+                      >
+                        <CalendarPlus size={16} />
+                      </button>
+                    )}
+                    <SeeAll href="/assignments" />
+                  </div>
+                }
+              >
                 {view.todo.length ? (
                   <ul className="space-y-3">
                     {view.todo.slice(0, 4).map((a) => {
