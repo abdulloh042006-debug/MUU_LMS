@@ -18,11 +18,23 @@ import {
   Settings2,
   ShieldCheck,
   UserRound,
+  UserCheck,
   Wallet,
   Bell,
   MessageSquareText,
   X,
   ArrowUpRight,
+  AlertTriangle,
+  CalendarClock,
+  ClipboardCheck,
+  Clock3,
+  FileHeart,
+  FileText,
+  HelpCircle,
+  ListTodo,
+  Mic,
+  Scale,
+  Send,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { NotificationBell } from "@/components/notification-bell";
@@ -64,29 +76,61 @@ const STUDENT_NAV: NavGroup[] = [
   },
 ];
 
-const TEACHER_NAV: NavGroup[] = [
+const TEACHER_GROUPS: NavGroup[] = [
   {
-    title: "Asosiy",
+    title: "O‘qitish",
     items: [
       { href: "/dashboard", label: "Bosh sahifa", icon: LayoutDashboard },
-      { href: "/calendar", label: "Dars jadvali", icon: CalendarDays },
-      { href: "/manage", label: "Kurslarim va baholash", icon: Settings2, keywords: "boshqaruv" },
-      { href: "/courses", label: "Materiallar", icon: BookOpen, keywords: "kitob" },
+      { href: "/timetable", label: "Dars jadvali", icon: CalendarDays, keywords: "para timetable" },
+      { href: "/my-courses", label: "Fanlar", icon: GraduationCap, keywords: "kurslar subjects" },
+      { href: "/absence-requests", label: "Davomat so‘rovlari", icon: FileHeart, keywords: "sababli ariza" },
     ],
+  },
+  {
+    title: "LMS",
+    items: [
+      { href: "/review-queue", label: "Tekshirish navbati", icon: ClipboardCheck, keywords: "baholash review" },
+      { href: "/manage", label: "Kurs boshqaruvi", icon: Settings2, keywords: "material topshiriq" },
+      { href: "/question-banks", label: "Savollar banki", icon: HelpCircle, keywords: "test" },
+      { href: "/deadlines", label: "Muddatlar taqvimi", icon: CalendarClock, keywords: "dedlayn" },
+      { href: "/appeals", label: "Apellyatsiyalar", icon: Scale, keywords: "e’tiroz" },
+    ],
+  },
+  {
+    title: "Hisobotlar",
+    items: [
+      { href: "/reports/attendance", label: "Davomat", icon: UserCheck },
+      { href: "/reports/grades", label: "Baholar", icon: Award },
+      { href: "/reports/at-risk", label: "Xavf ostidagi talabalar", icon: AlertTriangle, keywords: "at-risk" },
+    ],
+  },
+  {
+    title: "Ish",
+    items: [
+      { href: "/tasks", label: "Vazifalar", icon: ListTodo },
+      { href: "/policies", label: "Qoidalar", icon: FileText, keywords: "siyosat hujjat" },
+      { href: "/grant-interviews", label: "Grant suhbatlari", icon: Mic },
+      { href: "/timesheet", label: "Mening tabelim", icon: Clock3, keywords: "soat" },
+    ],
+  },
+  {
+    title: "Kampus",
+    items: [{ href: "/messages", label: "Xabar yuborish", icon: Send, keywords: "e’lon" }],
   },
 ];
 
+const TEACHER_NAV = TEACHER_GROUPS;
+
 const ADMIN_NAV: NavGroup[] = [
   {
-    title: "Asosiy",
+    title: "Boshqaruv",
     items: [
       { href: "/dashboard", label: "Bosh sahifa", icon: LayoutDashboard },
       { href: "/admin-panel", label: "Foydalanuvchilar", icon: ShieldCheck, keywords: "admin" },
-      { href: "/manage", label: "Ta’lim boshqaruvi", icon: Settings2 },
-      { href: "/calendar", label: "Taqvim", icon: CalendarDays },
-      { href: "/courses", label: "Materiallar", icon: BookOpen },
     ],
   },
+  ...TEACHER_GROUPS.filter((g) => g.title !== "O‘qitish"),
+  { title: "Jadval", items: [{ href: "/timetable", label: "Dars jadvali", icon: CalendarDays }, { href: "/my-courses", label: "Fanlar", icon: GraduationCap }] },
 ];
 
 const COMMON: NavItem[] = [
@@ -103,8 +147,8 @@ const BOTTOM_STUDENT: NavItem[] = [
 
 const BOTTOM_STAFF: NavItem[] = [
   { href: "/dashboard", label: "Asosiy", icon: LayoutDashboard },
-  { href: "/calendar", label: "Jadval", icon: CalendarDays },
-  { href: "/manage", label: "Boshqaruv", icon: Settings2 },
+  { href: "/timetable", label: "Jadval", icon: CalendarDays },
+  { href: "/review-queue", label: "Tekshiruv", icon: ClipboardCheck },
   { href: "/profile", label: "Profil", icon: UserRound },
 ];
 

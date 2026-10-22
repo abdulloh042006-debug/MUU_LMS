@@ -216,7 +216,7 @@ const subOut = (s: Row) => {
 };
 
 // ---------- Taqvim ----------
-const periodStarts: Record<number, [number, number]> = { 1: [8, 0], 2: [9, 20], 3: [10, 40], 4: [12, 0], 5: [13, 20], 6: [14, 40] };
+const periodStarts: Record<number, [number, number]> = { 1: [8, 0], 2: [9, 20], 3: [10, 40], 4: [12, 30], 5: [13, 50], 6: [15, 10], 7: [16, 30] };
 const schedule: [number, number, number, string][] = [
   [0, 1, 1, "A-301"], [0, 3, 2, "B-204"], [1, 2, 3, "A-302"], [1, 4, 4, "B-205"], [1, 5, 1, "A-301"],
   [3, 1, 5, "B-201"], [3, 3, 6, "A-301"], [3, 4, 7, "A-401"], [3, 6, 3, "A-302"],
@@ -238,7 +238,8 @@ let eventId = 1;
     end_time: iso(start.getTime() + 70 * MIN),
     room,
     period,
-    for_group: "IT102-26",
+    lesson_type: (course + day) % 2 ? "lecture" : "seminar",
+    for_group: course % 3 === 0 ? "IT102-26, IT102-27" : "IT102-26",
     created_by: 2,
     created_at: iso(weekStart - DAY),
   });
@@ -269,7 +270,15 @@ const sessions: Row[] = [];
 const records: Row[] = [];
 let sessionId = 1;
 let recordId = 1;
-const statuses = ["present", "present", "present", "late", "present", "absent", "present", "excused"];
+// Talabalar uchun turlicha davomat: har 5-talaba xavf ostida (ko‘p qoldiradi).
+const pickStatus = (i: number, sid: number) => {
+  const roll = (i * 37 + sid * 53 + i * sid * 7) % 100;
+  const absent = i % 5 === 0 ? 38 : i % 7 === 3 ? 18 : 3;
+  if (roll < absent) return "absent";
+  if (roll < absent + 6) return "excused";
+  if (roll < absent + 16) return "late";
+  return "present";
+};
 events
   .filter((e) => e.event_type === "lesson" && new Date(e.end_time).getTime() < now)
   .forEach((e) => {
@@ -280,7 +289,7 @@ events
       location_longitude: null, location_radius_m: 80, max_location_accuracy_m: 100, ended_at: e.end_time,
     });
     students().forEach((s, i) => {
-      const status = s.username === "talaba_demo" ? (sid % 5 === 0 ? "late" : "present") : statuses[(i + sid) % statuses.length];
+      const status = s.username === "talaba_demo" ? (sid % 5 === 0 ? "late" : "present") : pickStatus(i, sid);
       records.push({
         id: recordId++, session: sid, student: s.id, status, note: status === "excused" ? "Kasallik" : "",
         source: "manual", checked_at: e.start_time, last_seen_at: status === "present" || status === "late" ? e.start_time : null,
@@ -347,6 +356,30 @@ const campusEvents: Row[] = [
 ];
 const eventRegs = new Set<number>([3]);
 const eventsOut = () => campusEvents.map((e) => ({ ...e, registered: e.registered + (eventRegs.has(e.id) ? 1 : 0), is_registered: eventRegs.has(e.id) }));
+
+// ---------- Demo-only: ustoz bo‘limlari (haqiqiy backendda yo‘q) ----------
+const appeals: Row[] = [
+  { id: 1, student: 5, assignment: 2, course: 1, reason: "Kod ishlaydi, lekin 2 ball kam qo‘yilgan deb o‘ylayman.", old_grade: 78, status: "pending", created_at: iso(now - 5 * 3600_000) },
+  { id: 2, student: 8, assignment: 4, course: 3, reason: "Fayl noto‘g‘ri yuklangan edi, to‘g‘risini qayta yubordim.", old_grade: 70, status: "pending", created_at: iso(now - DAY) },
+  { id: 3, student: 11, assignment: 2, course: 1, reason: "Izoh bo‘yicha tushuntirish so‘rayman.", old_grade: 84, status: "resolved", created_at: iso(now - 3 * DAY) },
+];
+const absenceRequests: Row[] = [
+  { id: 1, student: 6, course: 2, date: iso(now - 2 * DAY), reason: "Kasallik (shifokor ma’lumotnomasi bor)", status: "pending" },
+  { id: 2, student: 9, course: 1, date: iso(now - 4 * DAY), reason: "Oilaviy sabab", status: "pending" },
+  { id: 3, student: 4, course: 3, date: iso(now - 6 * DAY), reason: "Sport musobaqasi", status: "approved" },
+];
+const questionBanks: Row[] = [
+  { id: 1, course: 1, title: "HTML/CSS — test savollari", questions: 42, updated_at: iso(now - 2 * DAY) },
+  { id: 2, course: 2, title: "SQL — oraliq nazorat banki", questions: 30, updated_at: iso(now - 5 * DAY) },
+  { id: 3, course: 3, title: "Python asoslari — yakuniy", questions: 55, updated_at: iso(now - 9 * DAY) },
+  { id: 4, course: 7, title: "Mashinaviy o‘rganish — viktorina", questions: 18, updated_at: iso(now - DAY) },
+];
+const grantInterviews: Row[] = [
+  { id: 1, candidate: "Abituriyent A. (anonim)", starts_at: iso(now + 2 * DAY + 5 * 3600_000), room: "Qabul zali", status: "scheduled" },
+  { id: 2, candidate: "Abituriyent B. (anonim)", starts_at: iso(now + 2 * DAY + 6 * 3600_000), room: "Qabul zali", status: "scheduled" },
+  { id: 3, candidate: "Abituriyent C. (anonim)", starts_at: iso(now + 3 * DAY + 4 * 3600_000), room: "Onlayn", status: "scheduled" },
+];
+const sentMessages: Row[] = [];
 
 // ---------- Sessiya ----------
 const SESSION_KEY = "mu-demo-user";
@@ -434,6 +467,47 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
   }
 
   const user = me();
+
+  // Ustoz bo‘limlari (demo)
+  if (seg[0] === "staff") {
+    needTeacher(user);
+    const what = seg[1];
+    if (what === "appeals") {
+      if (method === "PATCH") {
+        const a = appeals.find((x) => x.id === num(2));
+        if (!a) throw new DemoError("Topilmadi.", 404);
+        a.status = body.status === "rejected" ? "rejected" : "resolved";
+        return a;
+      }
+      return appeals.map((a) => ({ ...a, student_name: userById(a.student).fullname, course_title: courseTitle(a.course), assignment_title: assignments.find((x) => x.id === a.assignment)?.title }));
+    }
+    if (what === "absence-requests") {
+      if (method === "PATCH") {
+        const a = absenceRequests.find((x) => x.id === num(2));
+        if (!a) throw new DemoError("Topilmadi.", 404);
+        a.status = body.status === "rejected" ? "rejected" : "approved";
+        return a;
+      }
+      return absenceRequests.map((a) => ({ ...a, student_name: userById(a.student).fullname, course_title: courseTitle(a.course) }));
+    }
+    if (what === "question-banks") {
+      if (method === "POST") {
+        const b: Row = { id: questionBanks.length + 1, course: Number(body.course) || 1, title: String(body.title || "Yangi bank"), questions: 0, updated_at: iso(Date.now()) };
+        questionBanks.unshift(b);
+        return b;
+      }
+      return questionBanks.map((b) => ({ ...b, course_title: courseTitle(b.course) }));
+    }
+    if (what === "grant-interviews") return grantInterviews;
+    if (what === "messages") {
+      if (method === "POST") {
+        const m: Row = { id: sentMessages.length + 1, group: String(body.group || "IT102-26"), subject: String(body.subject || ""), text: String(body.text || ""), created_at: iso(Date.now()) };
+        sentMessages.unshift(m);
+        return m;
+      }
+      return sentMessages;
+    }
+  }
 
   // Demo-only bo‘limlar
   if (at("finance")) return finance;

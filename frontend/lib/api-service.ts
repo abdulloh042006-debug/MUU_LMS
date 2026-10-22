@@ -363,3 +363,16 @@ export const getRequests = () => fetchAPI("/requests/");
 export const createRequest = (data: Record<string, unknown>) => fetchAPI("/requests/", post(data));
 export const getCampusEvents = () => fetchAPI("/campus-events/");
 export const toggleCampusEvent = (id: number) => fetchAPI(`/campus-events/${id}/register/`, post({}));
+
+// Ustoz bo‘limlari — hozircha faqat demo rejimda.
+export const getAppeals = () => fetchAPI("/staff/appeals/");
+export const resolveAppeal = (id: number, status: "resolved" | "rejected") =>
+  fetchAPI(`/staff/appeals/${id}/`, { method: "PATCH", body: JSON.stringify({ status }) });
+export const getAbsenceRequests = () => fetchAPI("/staff/absence-requests/");
+export const decideAbsence = (id: number, status: "approved" | "rejected") =>
+  fetchAPI(`/staff/absence-requests/${id}/`, { method: "PATCH", body: JSON.stringify({ status }) });
+export const getQuestionBanks = () => fetchAPI("/staff/question-banks/");
+export const createQuestionBank = (data: Record<string, unknown>) => fetchAPI("/staff/question-banks/", post(data));
+export const getGrantInterviews = () => fetchAPI("/staff/grant-interviews/");
+export const getSentMessages = () => fetchAPI("/staff/messages/");
+export const sendStaffMessage = (data: Record<string, unknown>) => fetchAPI("/staff/messages/", post(data));

@@ -43,7 +43,7 @@ export function TeacherHome() {
               Bugun {v.lessons.length} ta dars bor, {v.pending.length} ta ish tekshirishni kutmoqda.
             </p>
             <div className="relative mt-5 flex flex-wrap gap-2.5">
-              <Link href="/calendar" className="inline-flex items-center gap-2 rounded-xl bg-gold-500 px-4 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400">
+              <Link href="/timetable" className="inline-flex items-center gap-2 rounded-xl bg-gold-500 px-4 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400">
                 <CalendarDays size={17} /> Jadval va davomat
               </Link>
               <Link href="/manage?tab=grading" className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold ring-1 ring-inset ring-white/20 hover:bg-white/15">
@@ -53,7 +53,7 @@ export function TeacherHome() {
           </section>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Stat label="Bugungi darslar" value={v.lessons.length} icon={CalendarDays} tone="navy" href="/calendar" />
+            <Stat label="Bugungi darslar" value={v.lessons.length} icon={CalendarDays} tone="navy" href="/timetable" />
             <Stat label="Tekshirish kutmoqda" value={v.pending.length} icon={ClipboardCheck} tone="amber" href="/manage?tab=grading" />
             <Stat label="Baholangan" value={v.graded} icon={CheckCircle2} tone="green" />
             <Stat label="Faol kurslar" value={v.courses.filter((c) => !c.is_archived).length} icon={GraduationCap} tone="violet" href="/manage" />
@@ -65,7 +65,7 @@ export function TeacherHome() {
                 <ul className="space-y-2.5">
                   {v.lessons.map((l) => (
                     <li key={l.id}>
-                      <Link href="/calendar" className="flex items-center gap-4 rounded-2xl border p-3.5 transition hover:bg-slate-50" style={{ borderLeft: `4px solid ${courseColor(l.course).dot}` }}>
+                      <Link href="/timetable" className="flex items-center gap-4 rounded-2xl border p-3.5 transition hover:bg-slate-50" style={{ borderLeft: `4px solid ${courseColor(l.course).dot}` }}>
                         <span className="w-12 font-heading text-sm font-semibold text-navy-900">{fmtTime(l.start_time)}</span>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold">{l.title}</p>
