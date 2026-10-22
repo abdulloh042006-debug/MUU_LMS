@@ -195,6 +195,9 @@ const asgOut = (a: Row, viewer: Row) => {
     is_submitted: viewer.role === "student" && mine.length > 0,
     attempts_used: viewer.role === "student" ? mine.length : 0,
     submission_count: submissions.filter((s) => s.assignment === a.id).length,
+    submitted_students: new Set(submissions.filter((s) => s.assignment === a.id).map((s) => s.student)).size,
+    graded_count: submissions.filter((s) => s.assignment === a.id && s.grade !== null).length,
+    student_count: courseById(a.course)?.studentIds.length ?? 0,
     is_overdue: new Date(a.deadline).getTime() < Date.now(),
     course_archived: !!courseById(a.course)?.is_archived,
   };
@@ -640,10 +643,21 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
       needTeacher(user);
       const a: Row = {
         id: Math.max(0, ...assignments.map((x) => x.id)) + 1, course: Number(body.course), title: String(body.title), description: String(body.description ?? ""),
-        file: null, deadline: String(body.deadline), teacher: user.id, max_attempts: Number(body.max_attempts) || 3, allow_late: !!body.allow_late,
+        file: body.file instanceof File ? `/media/assignments/${body.file.name}` : null, deadline: String(body.deadline), teacher: user.id,
+        max_attempts: Math.max(1, Number(body.max_attempts) || 3), allow_late: body.allow_late === true || body.allow_late === "true" || body.allow_late === "on",
         created_at: iso(Date.now()), updated_at: iso(Date.now()),
       };
+      if (!a.course || !courseById(a.course)) throw new DemoError("course: Kursni tanlang.", 400);
+      if (Number.isNaN(new Date(a.deadline).getTime())) throw new DemoError("deadline: Muddatni kiriting.", 400);
       assignments.push(a);
+      events.push({
+        id: Math.max(0, ...events.map((x) => x.id)) + 1, course: a.course, title: `Dedlayn: ${a.title}`, description: "", event_type: "assignment_deadline",
+        start_time: a.deadline, end_time: iso(new Date(a.deadline).getTime() + 30 * MIN), room: "", period: null, for_group: "All", created_by: user.id, created_at: a.created_at,
+      });
+      const nid = Math.max(0, ...notifications.map((x) => x.id)) + 1;
+      courseById(a.course)!.studentIds.forEach((sid: number, k: number) =>
+        notifications.push({ id: nid + k, user: sid, type: "assignment", title: "Yangi topshiriq", message: `${a.title} · ${courseTitle(a.course)}`, link: `/assignments/${a.id}`, is_read: false, created_at: iso(Date.now()) }),
+      );
       return asgOut(a, user);
     }
     const a = assignments.find((x) => x.id === num(1));
@@ -651,12 +665,17 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
     if (seg.length === 2) {
       if (method === "PATCH") {
         needTeacher(user);
-        for (const k of ["title", "description", "deadline", "max_attempts", "allow_late"]) if (k in body) a[k] = body[k];
+        for (const k of ["title", "description", "deadline"]) if (k in body) a[k] = body[k];
+        if ("max_attempts" in body) a.max_attempts = Math.max(1, Number(body.max_attempts) || 1);
+        if ("allow_late" in body) a.allow_late = body.allow_late === true || body.allow_late === "true" || body.allow_late === "on";
         a.updated_at = iso(Date.now());
+        const ev = events.find((e) => e.event_type === "assignment_deadline" && e.course === a.course && e.title.endsWith(a.title));
+        if (ev && "deadline" in body) { ev.start_time = a.deadline; ev.end_time = iso(new Date(a.deadline).getTime() + 30 * MIN); }
       }
       if (method === "DELETE") {
         needTeacher(user);
         assignments.splice(assignments.indexOf(a), 1);
+        for (let i = events.length - 1; i >= 0; i--) if (events[i].event_type === "assignment_deadline" && events[i].course === a.course && events[i].title === `Dedlayn: ${a.title}`) events.splice(i, 1);
         return null;
       }
       return asgOut(a, user);

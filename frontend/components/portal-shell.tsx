@@ -89,6 +89,7 @@ const TEACHER_GROUPS: NavGroup[] = [
   {
     title: "LMS",
     items: [
+      { href: "/assignments", label: "Topshiriqlar", icon: ClipboardList, keywords: "vazifa dedlayn muddat" },
       { href: "/review-queue", label: "Tekshirish navbati", icon: ClipboardCheck, keywords: "baholash review" },
       { href: "/manage", label: "Kurs boshqaruvi", icon: Settings2, keywords: "material topshiriq" },
       { href: "/question-banks", label: "Savollar banki", icon: HelpCircle, keywords: "test" },

@@ -81,7 +81,7 @@ export default function Assignment() {
 
               <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
                 <Panel title="Topshiriq ko‘rsatmasi" icon={Paperclip}>
-                  <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{item.description}</p>
+                  <p className="whitespace-pre-wrap text-sm leading-7 text-slate-700">{item.description || <span className="text-muted-foreground">Ustoz qo‘shimcha ko‘rsatma yozmagan.</span>}</p>
                   {item.file && (
                     <button onClick={() => downloadFile(item.file).catch((e) => setError(e.message))} className="mt-5 inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold text-navy-700 hover:bg-navy-50">
                       <Download size={16} /> Topshiriq fayli

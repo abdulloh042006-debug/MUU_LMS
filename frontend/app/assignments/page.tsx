@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { CalendarPlus, CheckCircle2, ClipboardList, Search } from "lucide-react";
 import { downloadIcs } from "@/lib/ics";
 import { ProtectedRoute } from "@/components/protected-route";
+import { TeacherAssignments } from "@/components/teacher-assignments";
+import { useAuth } from "@/contexts/auth-context";
 import { getAssignments } from "@/lib/api-service";
 import { Empty, ErrorNote, IconChip, Page, PageHeader, PageSkeleton, Pill, Segmented, useLoad } from "@/components/mu/kit";
 import { courseColor, fmtDateTime, timeLeft } from "@/lib/format";
@@ -16,10 +18,15 @@ export default function AssignmentsPage() {
   return (
     <ProtectedRoute>
       <Suspense fallback={<Page><PageSkeleton /></Page>}>
-        <Inner />
+        <RoleSwitch />
       </Suspense>
     </ProtectedRoute>
   );
+}
+
+function RoleSwitch() {
+  const { user } = useAuth();
+  return user?.role === "ustoz" || user?.role === "admin" ? <TeacherAssignments /> : <Inner />;
 }
 
 function Inner() {
