@@ -386,3 +386,11 @@ export const removeQuiz = (id: number) => fetchAPI(`/quizzes/${id}/`, { method: 
 export const submitQuiz = (id: number | string, answers: (number | null)[]) => fetchAPI(`/quizzes/${id}/submit/`, post({ answers }));
 export const getQuizResults = (id: number | string) => fetchAPI(`/quizzes/${id}/results/`);
 export const getExams = () => fetchAPI("/exams/");
+
+// Admin: fakultet/guruh va murojaatlar — hozircha faqat demo rejimda.
+export const getFaculties = () => fetchAPI("/admin/faculties/");
+export const getGroups = () => fetchAPI("/admin/groups/");
+export const createGroup = (data: Record<string, unknown>) => fetchAPI("/admin/groups/", post(data));
+export const updateGroup = (id: number, data: Record<string, unknown>) => fetchAPI(`/admin/groups/${id}/`, { method: "PATCH", body: JSON.stringify(data) });
+export const removeGroup = (id: number) => fetchAPI(`/admin/groups/${id}/`, { method: "DELETE" });
+export const updateRequest = (id: number, data: Record<string, unknown>) => fetchAPI(`/requests/${id}/`, { method: "PATCH", body: JSON.stringify(data) });

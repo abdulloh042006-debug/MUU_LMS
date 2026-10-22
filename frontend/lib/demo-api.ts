@@ -371,6 +371,11 @@ const requestRows: Row[] = [
   { id: 1, kind: "Ma’lumotnoma", document: "O‘qish joyidan ma’lumotnoma", files: [], type: "O‘qish joyidan ma’lumotnoma", language: "O‘zbek", purpose: "Bank uchun", status: "ready", created_at: iso(now - 9 * DAY), updated_at: iso(now - 7 * DAY), subject: "Ma’lumotnoma so‘rovi", description: "Bank kartasi uchun kerak.", user: 3 },
   { id: 2, kind: "Ma’lumotnoma", document: "Ta’lim tili / taxminiy bitirish xati", files: [], type: "Ta’lim tili / taxminiy bitirish xati", language: "Ingliz", purpose: "Almashinuv dasturi", status: "processing", created_at: iso(now - 2 * DAY), updated_at: iso(now - DAY), subject: "Transkript (ingliz tilida)", description: "", user: 3 },
 ];
+requestRows.push(
+  { id: 3, kind: "Ariza", document: "Akademik ta’til", files: ["tibbiy_xulosa.pdf"], type: "Akademik ta’til", language: "", purpose: "", status: "new", created_at: iso(now - 5 * 3600_000), updated_at: iso(now - 5 * 3600_000), subject: "Sog‘lig‘im sababli akademik ta’til", description: "Shifokor xulosasi ilova qilindi.", user: 6 },
+  { id: 4, kind: "Ma’lumotnoma", document: "Work & Travel xati", files: [], type: "Work & Travel xati", language: "Inglizcha", purpose: "Elchixona", status: "new", created_at: iso(now - DAY), updated_at: iso(now - DAY), subject: "Work & Travel uchun xat", description: "", user: 9 },
+  { id: 5, kind: "Ariza", document: "Guruhni almashtirish", files: [], type: "Guruhni almashtirish", language: "", purpose: "", status: "processing", created_at: iso(now - 2 * DAY), updated_at: iso(now - DAY), subject: "IT102-27 ga o‘tish", description: "Ingliz tilidagi guruhda o‘qimoqchiman.", user: 12 },
+);
 const campusEvents: Row[] = [
   { id: 1, title: "Hackathon: Smart Campus", category: "Texnologiya", starts_at: iso(now + 5 * DAY), location: "Katta zal, A blok", description: "24 soatlik jamoaviy hackathon. Eng yaxshi loyihalar mukofotlanadi.", seats: 80, registered: 54 },
   { id: 2, title: "Karyera kuni", category: "Karyera", starts_at: iso(now + 9 * DAY), location: "Markaziy maydon", description: "20+ kompaniya vakillari bilan uchrashuv va suhbatlar.", seats: 300, registered: 188 },
@@ -379,6 +384,23 @@ const campusEvents: Row[] = [
 ];
 const eventRegs = new Set<number>([3]);
 const eventsOut = () => campusEvents.map((e) => ({ ...e, registered: e.registered + (eventRegs.has(e.id) ? 1 : 0), is_registered: eventRegs.has(e.id) }));
+
+// ---------- Demo-only: admin — fakultet va guruhlar ----------
+const faculties: Row[] = [
+  { id: 1, name: "Axborot texnologiyalari va sun’iy intellekt", short: "IT" },
+  { id: 2, name: "Biznes va boshqaruv", short: "BUS" },
+  { id: 3, name: "Pedagogika va tillar", short: "EDU" },
+];
+const groups: Row[] = [
+  { id: 1, code: "IT102-26", faculty: 1, year: 1, language: "O‘zbek", curator: 2 },
+  { id: 2, code: "IT102-27", faculty: 1, year: 1, language: "Ingliz", curator: 2 },
+  { id: 3, code: "BUS101-26", faculty: 2, year: 1, language: "O‘zbek", curator: null },
+  { id: 4, code: "EDU201-25", faculty: 3, year: 2, language: "Rus", curator: null },
+];
+const groupOut = (g: Row) => ({
+  ...g, faculty_name: faculties.find((f) => f.id === g.faculty)?.name, curator_name: g.curator ? userById(g.curator).fullname : null,
+  student_count: users.filter((u) => u.role === "student" && u.group_code === g.code).length,
+});
 
 // ---------- Demo-only: modullar, testlar, imtihonlar ----------
 const moduleTitles: Record<number, string[]> = {
@@ -673,6 +695,44 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
     return mine.map((e) => ({ ...e, course_title: courseTitle(e.course), course_code: courseById(e.course)?.code }));
   }
 
+  // Admin: fakultetlar, guruhlar, murojaatlarni ko‘rib chiqish (demo)
+  if (at("admin", "faculties")) { needAdmin(user); return faculties; }
+  if (seg[0] === "admin" && seg[1] === "groups") {
+    needAdmin(user);
+    if (seg.length === 2 && method === "POST") {
+      const code = String(body.code || "").trim().toUpperCase();
+      if (!code) throw new DemoError("code: Guruh kodini kiriting.", 400);
+      if (groups.some((g) => g.code === code)) throw new DemoError("code: Bu guruh mavjud.", 400);
+      const g: Row = { id: Math.max(0, ...groups.map((x) => x.id)) + 1, code, faculty: Number(body.faculty) || 1, year: Number(body.year) || 1, language: String(body.language || "O‘zbek"), curator: body.curator ? Number(body.curator) : null };
+      groups.push(g);
+      return groupOut(g);
+    }
+    if (seg.length === 3 && method === "PATCH") {
+      const g = groups.find((x) => x.id === num(2));
+      if (!g) throw new DemoError("Topilmadi.", 404);
+      for (const k of ["faculty", "year", "language"]) if (k in body) g[k] = body[k];
+      if ("curator" in body) g.curator = body.curator ? Number(body.curator) : null;
+      return groupOut(g);
+    }
+    if (seg.length === 3 && method === "DELETE") {
+      const g = groups.find((x) => x.id === num(2));
+      if (g && groupOut(g).student_count) throw new DemoError("Guruhda talabalar bor — avval ularni boshqa guruhga o‘tkazing.", 400);
+      if (g) groups.splice(groups.indexOf(g), 1);
+      return null;
+    }
+    return groups.map(groupOut);
+  }
+  if (seg[0] === "requests" && seg.length === 2 && method === "PATCH") {
+    needAdmin(user);
+    const r = requestRows.find((x) => x.id === num(1));
+    if (!r) throw new DemoError("Topilmadi.", 404);
+    if (["new", "processing", "ready", "rejected"].includes(String(body.status))) r.status = body.status;
+    if ("answer" in body) r.answer = String(body.answer);
+    r.updated_at = iso(Date.now());
+    notifications.push({ id: Math.max(0, ...notifications.map((x) => x.id)) + 1, user: r.user, type: "system", title: "Murojaat holati o‘zgardi", message: `${r.subject || r.type}: ${r.status === "ready" ? "tayyor" : r.status === "rejected" ? "rad etildi" : "ko‘rib chiqilmoqda"}`, link: "/requests", is_read: false, created_at: iso(Date.now()) });
+    return r;
+  }
+
   // Demo-only bo‘limlar
   if (at("finance")) return finance;
   if (seg[0] === "requests") {
@@ -681,7 +741,7 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
       requestRows.unshift(r);
       return r;
     }
-    return requestRows.filter((r) => r.user === user.id || user.role !== "student");
+    return requestRows.filter((r) => r.user === user.id || user.role !== "student").map((r) => ({ ...r, student_name: userById(r.user)?.fullname, group_code: userById(r.user)?.group_code }));
   }
   if (seg[0] === "campus-events") {
     if (method === "POST" && seg[2] === "register") {
@@ -870,7 +930,7 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
       const e: Row = {
         id: Math.max(0, ...events.map((x) => x.id)) + 1, course: Number(body.course), title: String(body.title), description: String(body.description ?? ""),
         event_type: body.event_type ?? "lesson", start_time: String(body.start_time), end_time: String(body.end_time), room: String(body.room ?? ""),
-        period: body.period ? Number(body.period) : null, for_group: body.for_group ?? null, created_by: user.id, created_at: iso(Date.now()),
+        period: body.period ? Number(body.period) : null, lesson_type: body.lesson_type ?? "lecture", for_group: body.for_group ?? null, created_by: user.id, created_at: iso(Date.now()),
       };
       if (new Date(e.end_time) <= new Date(e.start_time)) throw new DemoError("end_time: Tugash vaqti boshlanishdan keyin bo‘lsin.", 400);
       events.push(e);
