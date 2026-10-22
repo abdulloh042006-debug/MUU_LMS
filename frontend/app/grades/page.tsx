@@ -1,203 +1,116 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
-import {
-  Award,
-  ChartNoAxesCombined,
-  ChevronRight,
-  MessageSquareText,
-} from "lucide-react";
+import { Award, MessageSquareText, TrendingUp } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getMyGrades } from "@/lib/api-service";
+import { Empty, ErrorNote, Page, PageHeader, PageSkeleton, Panel, Pill, Progress, Ring, Stat, useLoad } from "@/components/mu/kit";
+import { courseColor, fmtDay, gradeTone } from "@/lib/format";
 
-interface Grade {
-  id: string;
-  assignment?: {
-    id: string;
-    title: string;
-    course_title?: string;
-    due_date?: string;
-  };
-  grade?: number | null;
-  feedback?: string;
-  graded_at?: string;
-}
-
-function gradeLabel(value: number) {
-  if (value >= 90) return "A’lo";
-  if (value >= 80) return "Yaxshi";
-  if (value >= 70) return "Qoniqarli";
-  return "Yaxshilash kerak";
-}
+const label = (v: number) => (v >= 90 ? "A’lo" : v >= 80 ? "Yaxshi" : v >= 70 ? "Qoniqarli" : "Yaxshilash kerak");
+const letter = (v: number) => (v >= 90 ? "A" : v >= 80 ? "B" : v >= 70 ? "C" : v >= 60 ? "D" : "F");
 
 export default function GradesPage() {
-  const [grades, setGrades] = useState<Grade[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, loading, error, reload } = useLoad(() => getMyGrades());
 
-  useEffect(() => {
-    const fetchGrades = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const data = await getMyGrades();
-        setGrades(Array.isArray(data) ? data : []);
-      } catch {
-        setError("Baholarni yuklab bo‘lmadi. Qayta urinib ko‘ring.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void fetchGrades();
-  }, []);
-
-  const stats = useMemo(() => {
-    const values = grades
-      .filter((item) => item.grade !== null && item.grade !== undefined)
-      .map((item) => Number(item.grade));
-
-    if (!values.length) {
-      return { average: null as number | null, highest: null as number | null, total: 0 };
-    }
-
+  const v = useMemo(() => {
+    const grades = ((data ?? []) as any[]).filter((g) => typeof g.grade === "number");
+    const avg = grades.length ? grades.reduce((s, g) => s + g.grade, 0) / grades.length : null;
+    const byCourse = new Map<string, { id: number; title: string; sum: number; n: number }>();
+    grades.forEach((g) => {
+      const key = g.assignment?.course_title ?? "Boshqa";
+      const e = byCourse.get(key) ?? { id: g.assignment?.course ?? 0, title: key, sum: 0, n: 0 };
+      e.sum += g.grade;
+      e.n++;
+      byCourse.set(key, e);
+    });
     return {
-      average: Math.round(
-        values.reduce((sum, value) => sum + value, 0) / values.length,
-      ),
-      highest: Math.max(...values),
-      total: values.length,
+      grades: grades.sort((a, b) => +new Date(b.graded_at ?? 0) - +new Date(a.graded_at ?? 0)),
+      avg,
+      best: grades.length ? Math.max(...grades.map((g) => g.grade)) : null,
+      courses: [...byCourse.values()].map((c) => ({ ...c, avg: c.sum / c.n })).sort((a, b) => b.avg - a.avg),
     };
-  }, [grades]);
-
-  const sortedGrades = useMemo(
-    () =>
-      [...grades].sort(
-        (a, b) =>
-          new Date(b.graded_at || 0).getTime() -
-          new Date(a.graded_at || 0).getTime(),
-      ),
-    [grades],
-  );
+  }, [data]);
 
   return (
     <ProtectedRoute>
-      <main className="workspace-page">
-        <div className="workspace-heading">
-          <div>
-            <p className="eyebrow">NATIJALAR VA USTOZ IZOHILARI</p>
-            <h1>Mening baholarim</h1>
-            <p>Baho bilan birga ustoz qoldirgan izohni ham shu yerda ko‘ring.</p>
-          </div>
-        </div>
-
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {isLoading ? (
-          <div className="notification-state">Yuklanmoqda…</div>
+      <Page>
+        <PageHeader eyebrow="Natijalar" title="Baholarim" description="Topshiriqlar bo‘yicha olingan ballar va ustoz izohlari." />
+        {error && <ErrorNote message={error} onRetry={reload} />}
+        {loading ? (
+          <PageSkeleton />
+        ) : !v.grades.length ? (
+          <Empty icon={Award} title="Baholar hali yo‘q" text="Ustoz topshiriqlaringizni baholagach, natijalar shu yerda ko‘rinadi." />
         ) : (
-          <>
-            <section className="grade-summary-grid" aria-label="Baholar statistikasi">
-              <div className="grade-summary-primary">
-                <span>O‘rtacha natija</span>
-                <strong>
-                  {stats.average === null ? "—" : stats.average}
-                  {stats.average !== null && <small>/100</small>}
-                </strong>
-                <p>
-                  {stats.total
-                    ? `${stats.total} ta baholangan topshiriq`
-                    : "Hali baho qo‘yilmagan"}
-                </p>
-              </div>
-              <div className="grade-summary-card">
-                <Award size={20} />
+          <div className="space-y-6">
+            <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+              <div className="flex items-center gap-5 rounded-2xl border bg-white p-5 shadow-card">
+                <Ring value={v.avg ?? 0} size={110} stroke={11} color="#c5a55a">
+                  <div>
+                    <p className="font-heading text-2xl font-semibold text-navy-900">{Math.round(v.avg ?? 0)}</p>
+                    <p className="text-[10px] text-muted-foreground">/ 100</p>
+                  </div>
+                </Ring>
                 <div>
-                  <span>Eng yuqori</span>
-                  <strong>{stats.highest === null ? "—" : stats.highest}</strong>
+                  <p className="text-xs font-medium text-muted-foreground">O‘rtacha ball</p>
+                  <p className="mt-1 font-heading text-2xl font-semibold text-navy-900">{letter(v.avg ?? 0)}</p>
+                  <p className="text-xs text-muted-foreground">{label(v.avg ?? 0)}</p>
                 </div>
               </div>
-              <div className="grade-summary-card">
-                <ChartNoAxesCombined size={20} />
-                <div>
-                  <span>Baholangan</span>
-                  <strong>{stats.total}</strong>
-                </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <Stat label="Baholangan ish" value={v.grades.length} icon={Award} tone="navy" />
+                <Stat label="Eng yuqori" value={v.best ?? "—"} icon={TrendingUp} tone="green" />
+                <Stat label="Fanlar" value={v.courses.length} icon={MessageSquareText} tone="violet" className="col-span-2 sm:col-span-1" />
               </div>
-            </section>
+            </div>
 
-            {!sortedGrades.length ? (
-              <div className="empty-message">
-                <Award />
-                <p>Hozircha baholangan topshiriq yo‘q.</p>
-              </div>
-            ) : (
-              <section className="grade-feed">
-                {sortedGrades.map((item) => {
-                  const value =
-                    item.grade === null || item.grade === undefined
-                      ? null
-                      : Number(item.grade);
-
-                  return (
-                    <Link
-                      key={item.id}
-                      href={
-                        item.assignment?.id
-                          ? `/assignments/${item.assignment.id}`
-                          : "/assignments"
-                      }
-                      className="grade-feed-row"
-                    >
-                      <div className="grade-feed-score">
-                        <strong>{value === null ? "—" : value}</strong>
-                        <span>{value === null ? "Kutilmoqda" : gradeLabel(value)}</span>
-                      </div>
-
-                      <div className="grade-feed-content">
-                        <span className="grade-feed-subject">
-                          {item.assignment?.course_title || "Topshiriq"}
+            <div className="grid gap-6 lg:grid-cols-[1fr_1.6fr]">
+              <Panel title="Fanlar bo‘yicha o‘rtacha" icon={TrendingUp}>
+                <ul className="space-y-4">
+                  {v.courses.map((c) => (
+                    <li key={c.title}>
+                      <div className="mb-1.5 flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2 truncate font-medium text-navy-900">
+                          <span className="size-2 rounded-full" style={{ background: courseColor(c.id).dot }} />
+                          {c.title}
                         </span>
-                        <h2>{item.assignment?.title || "Topshiriq"}</h2>
-
-                        {item.feedback ? (
-                          <div className="grade-feedback">
-                            <MessageSquareText size={15} />
-                            <span>{item.feedback}</span>
-                          </div>
-                        ) : (
-                          <p className="grade-no-feedback">
-                            Ustoz izoh qoldirmagan.
-                          </p>
-                        )}
-
-                        {item.graded_at && (
-                          <time dateTime={item.graded_at}>
-                            {new Date(item.graded_at).toLocaleDateString("uz-UZ", {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                              timeZone: "Asia/Tashkent",
-                            })}
-                          </time>
-                        )}
+                        <b>{Math.round(c.avg)}</b>
                       </div>
+                      <Progress value={c.avg} tone={gradeTone(c.avg)} thin />
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
 
-                      <ChevronRight className="grade-feed-arrow" size={19} />
-                    </Link>
-                  );
-                })}
-              </section>
-            )}
-          </>
+              <Panel title="Barcha baholar" icon={Award}>
+                <ul className="divide-y">
+                  {v.grades.map((g) => (
+                    <li key={g.id} className="py-3.5">
+                      <div className="flex items-start gap-3">
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/assignments/${g.assignment?.id}`} className="block truncate text-sm font-semibold text-navy-900 hover:underline">
+                            {g.assignment?.title}
+                          </Link>
+                          <p className="text-xs text-muted-foreground">
+                            {g.assignment?.course_title} {g.graded_at && `· ${fmtDay(g.graded_at)}`}
+                          </p>
+                        </div>
+                        <Pill tone={gradeTone(g.grade)}>{g.grade} · {label(g.grade)}</Pill>
+                      </div>
+                      {g.feedback && (
+                        <p className="mt-2 flex gap-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-700">
+                          <MessageSquareText size={14} className="mt-0.5 shrink-0 text-navy-400" /> {g.feedback}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            </div>
+          </div>
         )}
-      </main>
+      </Page>
     </ProtectedRoute>
   );
 }

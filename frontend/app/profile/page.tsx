@@ -1,40 +1,58 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
-import {
-  Bell,
-  ChartNoAxesCombined,
-  ChevronRight,
-  ShieldCheck,
-  UserCheck,
-  UserRound,
-} from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
-import { changePassword, updateUserProfile } from "@/lib/api-service";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { Award, BadgeCheck, Building2, GraduationCap, IdCard, KeyRound, LogOut, Mail, Pencil, Phone, ShieldCheck, UserCheck, Users } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/contexts/auth-context";
+import { changePassword, getMyAttendance, getMyGrades, updateUserProfile } from "@/lib/api-service";
+import { Avatar, IconChip, Notice, Page, Panel, Pill, Stat, settle, useLoad } from "@/components/mu/kit";
+import { cn } from "@/lib/utils";
 
 type Status = { kind: "success" | "error"; text: string } | null;
+const input = "h-11 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none transition focus:border-gold-500 focus:ring-2 focus:ring-gold-200 disabled:bg-slate-50";
 
-export default function Profile() {
-  const { user, reloadUser } = useAuth();
+function StatusLine({ s }: { s: Status }) {
+  if (!s) return null;
+  return (
+    <p role="status" className={cn("rounded-xl px-3 py-2.5 text-xs", s.kind === "success" ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800")}>
+      {s.text}
+    </p>
+  );
+}
+
+function Info({ icon: Icon, label, value }: { icon: any; label: string; value?: string | null }) {
+  return (
+    <div className="flex items-center gap-3 py-3">
+      <IconChip icon={Icon} tone="navy" size={36} />
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="truncate text-sm font-medium text-navy-900">{value || "—"}</p>
+      </div>
+    </div>
+  );
+}
+
+function Content() {
+  const { user, reloadUser, logout } = useAuth();
+  const mustChange = useSearchParams().get("change-password") === "1" || user?.must_change_password;
+  const student = user?.role === "student";
+  const role = user?.role === "admin" ? "Administrator" : user?.role === "ustoz" ? "O‘qituvchi" : "Talaba";
+
+  const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
   const [status, setStatus] = useState<Status>(null);
   const [saving, setSaving] = useState(false);
+  const [cur, setCur] = useState("");
+  const [next, setNext] = useState("");
+  const [conf, setConf] = useState("");
+  const [pStatus, setPStatus] = useState<Status>(null);
+  const [pBusy, setPBusy] = useState(false);
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordStatus, setPasswordStatus] = useState<Status>(null);
-  const [changingPassword, setChangingPassword] = useState(false);
+  const { data } = useLoad(() => settle({ grades: student ? getMyGrades : async () => [], att: student ? getMyAttendance : async () => [] }), [student]);
 
   useEffect(() => {
     setName(user?.fullname || "");
@@ -42,23 +60,22 @@ export default function Profile() {
     setBio(user?.bio || "");
   }, [user]);
 
+  const gv = ((data?.grades ?? []) as any[]).map((g) => g.grade).filter((x) => typeof x === "number");
+  const avg = gv.length ? Math.round(gv.reduce((s, x) => s + x, 0) / gv.length) : null;
+  const att = (data?.att ?? []) as any[];
+  const rate = att.length ? Math.round((att.filter((r) => r.status === "present" || r.status === "late").length / att.length) * 100) : null;
+
   async function save(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     setStatus(null);
     try {
-      await updateUserProfile({
-        fullname: name.trim(),
-        email: email.trim(),
-        bio: bio.trim(),
-      });
+      await updateUserProfile({ fullname: name.trim(), email: email.trim(), bio: bio.trim() });
       await reloadUser();
       setStatus({ kind: "success", text: "Profil saqlandi." });
-    } catch (error) {
-      setStatus({
-        kind: "error",
-        text: error instanceof Error ? error.message : String(error),
-      });
+      setEditing(false);
+    } catch (err) {
+      setStatus({ kind: "error", text: err instanceof Error ? err.message : String(err) });
     } finally {
       setSaving(false);
     }
@@ -66,235 +83,117 @@ export default function Profile() {
 
   async function savePassword(e: FormEvent) {
     e.preventDefault();
-    setPasswordStatus(null);
-
-    if (newPassword !== confirmPassword) {
-      setPasswordStatus({
-        kind: "error",
-        text: "Yangi parollar bir xil emas.",
-      });
-      return;
-    }
-
-    setChangingPassword(true);
+    setPStatus(null);
+    if (next !== conf) return setPStatus({ kind: "error", text: "Yangi parollar bir xil emas." });
+    setPBusy(true);
     try {
-      await changePassword(currentPassword, newPassword, confirmPassword);
+      await changePassword(cur, next, conf);
       await reloadUser();
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setPasswordStatus({
-        kind: "success",
-        text: "Parol muvaffaqiyatli o‘zgartirildi.",
-      });
-    } catch (error) {
-      setPasswordStatus({
-        kind: "error",
-        text: error instanceof Error ? error.message : String(error),
-      });
+      setCur("");
+      setNext("");
+      setConf("");
+      setPStatus({ kind: "success", text: "Parol muvaffaqiyatli o‘zgartirildi." });
+    } catch (err) {
+      setPStatus({ kind: "error", text: err instanceof Error ? err.message : String(err) });
     } finally {
-      setChangingPassword(false);
+      setPBusy(false);
     }
   }
 
   return (
-    <ProtectedRoute>
-      <main className="workspace-page">
-        <div className="workspace-heading">
-          <div>
-            <p className="eyebrow">SHAXSIY MA’LUMOT VA XAVFSIZLIK</p>
-            <h1>Mening profilim</h1>
-            <p>Profil ma’lumotlari va hisob parolini bir joydan boshqaring.</p>
+    <Page>
+      {mustChange && <div className="mb-5"><Notice tone="amber">Xavfsizlik uchun davom etishdan oldin vaqtinchalik parolni almashtiring.</Notice></div>}
+
+      {/* Profil kartasi */}
+      <section className="overflow-hidden rounded-3xl border bg-white shadow-card">
+        <div className="relative h-32 bg-gradient-to-r from-navy-700 via-navy-800 to-navy-950 md:h-40">
+          <div className="absolute -right-10 -top-10 size-56 rounded-full bg-gold-500/20 blur-2xl" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gold-500/40" />
+        </div>
+        <div className="relative px-5 pb-6 md:px-8">
+          <div className="-mt-12 flex flex-col gap-4 md:-mt-14 md:flex-row md:items-end md:justify-between">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:gap-5">
+              <Avatar name={user?.fullname} size={96} className="shrink-0 border-4 border-white shadow-lift md:!size-28" />
+              <div className="md:pb-1">
+                <h1 className="text-2xl font-semibold text-navy-900 md:text-3xl">{user?.fullname}</h1>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Pill tone="navy">{role}</Pill>
+                  <Pill tone="green" dot>Faol</Pill>
+                  {student && user?.group_code && <Pill tone="gold">{user.group_code}</Pill>}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setEditing(!editing)} className="inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-sm font-semibold text-navy-700 hover:bg-navy-50">
+                <Pencil size={15} /> Tahrirlash
+              </button>
+              <button onClick={logout} className="inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-sm font-semibold text-rose-600 hover:bg-rose-50">
+                <LogOut size={15} /> Chiqish
+              </button>
+            </div>
           </div>
+          {user?.bio && <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-600">{user.bio}</p>}
         </div>
+      </section>
 
-        {user?.must_change_password && (
-          <Alert className="mb-6">
-            <AlertDescription>
-              Siz vaqtinchalik parol bilan kirdingiz. Davom etishdan oldin yangi parol o‘rnating.
-            </AlertDescription>
-          </Alert>
-        )}
+      {student && (
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="O‘rtacha ball" value={avg ?? "—"} icon={Award} tone="green" />
+          <Stat label="Davomat" value={rate === null ? "—" : `${rate}%`} icon={UserCheck} tone="blue" />
+          <Stat label="Kurs" value="1-kurs" icon={GraduationCap} tone="violet" />
+          <Stat label="Holat" value="Faol" icon={BadgeCheck} tone="gold" />
+        </div>
+      )}
 
-        {user?.role === "student" && (
-          <nav className="profile-quick-links" aria-label="Talaba bo‘limlari">
-            <Link href="/grades">
-              <ChartNoAxesCombined size={19} />
-              <span>
-                <strong>Baholar</strong>
-                <small>Natija va ustoz izohlari</small>
-              </span>
-              <ChevronRight size={18} />
-            </Link>
-            <Link href="/attendance">
-              <UserCheck size={19} />
-              <span>
-                <strong>Davomat</strong>
-                <small>Qatnashuv va kechikishlar</small>
-              </span>
-              <ChevronRight size={18} />
-            </Link>
-            <Link href="/notifications">
-              <Bell size={19} />
-              <span>
-                <strong>Bildirishnomalar</strong>
-                <small>Muhim yangilanishlar</small>
-              </span>
-              <ChevronRight size={18} />
-            </Link>
-          </nav>
-        )}
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+        <Panel title="Ma’lumotlar" icon={IdCard}>
+          <div className="divide-y">
+            {student && <Info icon={IdCard} label="Talaba ID" value={user?.student_id} />}
+            {student && <Info icon={Users} label="Guruh" value={user?.group_code} />}
+            {student && <Info icon={Building2} label="Fakultet" value="Axborot texnologiyalari" />}
+            <Info icon={Mail} label="Email" value={user?.email} />
+            <Info icon={Phone} label="Telefon" value={user?.phone_number} />
+            <Info icon={ShieldCheck} label="Telegram" value={user?.telegram_connected ? "Ulangan" : "Ulanmagan"} />
+          </div>
+        </Panel>
 
-        <div className="management-grid">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <UserRound size={20} />
-                <CardTitle>Profil ma’lumotlari</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-5 rounded-lg bg-muted/60 p-4 text-sm">
-                <strong>@{user?.username}</strong>
-                <span className="ml-2 text-muted-foreground">
-                  · {user?.role === "admin" ? "Administrator" : user?.role === "student" ? "Talaba" : "Ustoz"}
-                </span>
-              </div>
-
-              {status &&
-                (status.kind === "success" ? (
-                  <p role="status" className="success-note">
-                    {status.text}
-                  </p>
-                ) : (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertDescription>{status.text}</AlertDescription>
-                  </Alert>
-                ))}
-
+        <div className="space-y-6">
+          {editing && (
+            <Panel title="Profilni tahrirlash" icon={Pencil}>
               <form onSubmit={save} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Ism-familiya</Label>
-                  <Input
-                    id="name"
-                    required
-                    maxLength={50}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Elektron pochta</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="bio">O‘zim haqimda</Label>
-                  <Textarea
-                    id="bio"
-                    maxLength={1000}
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                  />
-                </div>
-
-                <Button disabled={saving || !name.trim()}>
-                  {saving ? "Saqlanmoqda…" : "Profilni saqlash"}
-                </Button>
+                <StatusLine s={status} />
+                <label className="block text-sm font-medium">To‘liq ism<input className={cn(input, "mt-1.5")} value={name} onChange={(e) => setName(e.target.value)} required /></label>
+                <label className="block text-sm font-medium">Email<input type="email" className={cn(input, "mt-1.5")} value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+                <label className="block text-sm font-medium">Qisqacha ma’lumot<textarea rows={3} className={cn(input, "mt-1.5 h-auto py-2.5")} value={bio} onChange={(e) => setBio(e.target.value)} /></label>
+                <button disabled={saving} className="h-11 rounded-xl bg-navy-700 px-6 text-sm font-semibold text-white hover:bg-navy-800 disabled:opacity-60">{saving ? "Saqlanmoqda…" : "Saqlash"}</button>
               </form>
-            </CardContent>
-          </Card>
+            </Panel>
+          )}
+          {!editing && status?.kind === "success" && <StatusLine s={status} />}
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <ShieldCheck size={20} />
-                <CardTitle>Hisob xavfsizligi</CardTitle>
+          <Panel title="Xavfsizlik" description="Parolni vaqti-vaqti bilan yangilab turing." icon={KeyRound}>
+            <form onSubmit={savePassword} className="space-y-4">
+              <StatusLine s={pStatus} />
+              <label className="block text-sm font-medium">Joriy parol<input type="password" autoComplete="current-password" className={cn(input, "mt-1.5")} value={cur} onChange={(e) => setCur(e.target.value)} required /></label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium">Yangi parol<input type="password" autoComplete="new-password" className={cn(input, "mt-1.5")} value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} /></label>
+                <label className="block text-sm font-medium">Takrorlang<input type="password" autoComplete="new-password" className={cn(input, "mt-1.5")} value={conf} onChange={(e) => setConf(e.target.value)} required minLength={8} /></label>
               </div>
-            </CardHeader>
-            <CardContent>
-              {passwordStatus &&
-                (passwordStatus.kind === "success" ? (
-                  <p role="status" className="success-note">
-                    {passwordStatus.text}
-                  </p>
-                ) : (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertDescription>{passwordStatus.text}</AlertDescription>
-                  </Alert>
-                ))}
-
-              <form onSubmit={savePassword} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Joriy parol</Label>
-                  <Input
-                    id="current-password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">Yangi parol</Label>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">
-                    Yangi parolni takrorlang
-                  </Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                  />
-                </div>
-
-                <p className="text-sm text-muted-foreground">
-                  Kamida 8 belgi ishlating. Parolni unutgan bo‘lsangiz,
-                  universitet administratoriga murojaat qiling.
-                </p>
-
-                <Button
-                  type="submit"
-                  disabled={
-                    changingPassword ||
-                    !currentPassword ||
-                    !newPassword ||
-                    !confirmPassword
-                  }
-                >
-                  {changingPassword
-                    ? "O‘zgartirilmoqda…"
-                    : "Parolni o‘zgartirish"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+              <button disabled={pBusy} className="h-11 rounded-xl border border-navy-700 px-6 text-sm font-semibold text-navy-700 hover:bg-navy-50 disabled:opacity-60">{pBusy ? "Saqlanmoqda…" : "Parolni yangilash"}</button>
+            </form>
+          </Panel>
         </div>
-      </main>
+      </div>
+    </Page>
+  );
+}
+
+export default function Profile() {
+  return (
+    <ProtectedRoute>
+      <Suspense fallback={null}>
+        <Content />
+      </Suspense>
     </ProtectedRoute>
   );
 }

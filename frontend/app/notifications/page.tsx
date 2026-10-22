@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCheck, RefreshCw } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
-import { Button } from "@/components/ui/button";
+import { Empty, ErrorNote, IconChip, Page, PageHeader, PageSkeleton, Pill } from "@/components/mu/kit";
+import { notifyMeta } from "@/components/mu/notify-meta";
+import { fmtDateTime } from "@/lib/format";
 import {
   getNotifications,
   NOTIFICATIONS_CHANGED,
@@ -90,89 +92,71 @@ export default function NotificationsPage() {
 
   return (
     <ProtectedRoute>
-      <main className="workspace-page notifications-page">
-        <div className="workspace-heading">
-          <div>
-            <h1>Bildirishnomalar</h1>
-            <p>
-              Topshiriq, baho, material va darslardagi muhim o‘zgarishlar shu
-              yerda.
-            </p>
-          </div>
-          {unread > 0 && (
-            <Button type="button" variant="outline" onClick={markAll} disabled={busy}>
-              <CheckCheck size={16} />
-              Hammasini o‘qildi
-            </Button>
-          )}
-        </div>
-
-        {error && (
-          <div className="notification-state error">
-            <span>{error}</span>
-            <button type="button" onClick={load} aria-label="Qayta yuklash">
-              <RefreshCw size={16} />
-            </button>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="notification-state">Yuklanmoqda…</div>
+      <Page>
+        <PageHeader
+          eyebrow="Markaz"
+          title="Bildirishnomalar"
+          description="Topshiriq, baho, material va darslardagi muhim o‘zgarishlar."
+          actions={
+            unread > 0 ? (
+              <button type="button" onClick={markAll} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-xl border bg-white px-4 text-sm font-semibold text-navy-700 shadow-card hover:bg-navy-50 disabled:opacity-60">
+                <CheckCheck size={16} /> Hammasini o‘qildi
+              </button>
+            ) : undefined
+          }
+        />
+        {error && <div className="mb-4"><ErrorNote message={error} onRetry={load} /></div>}
+        {loading && !items.length ? (
+          <PageSkeleton rows={3} />
         ) : !items.length ? (
-          <div className="empty-message">
-            <Bell />
-            <span>Hozircha bildirishnoma yo‘q.</span>
-          </div>
+          <Empty icon={Bell} title="Hozircha bildirishnoma yo‘q" />
         ) : (
-          <div className="notifications-page-list">
+          <ul className="space-y-2.5">
             {items.map((item) => {
+              const meta = notifyMeta(item.type);
               const body = (
                 <>
-                  <div>
-                    <strong>{item.title}</strong>
-                    {item.message && <p>{item.message}</p>}
-                    <time dateTime={item.created_at}>
-                      {new Date(item.created_at).toLocaleString("uz-UZ", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        timeZone: "Asia/Tashkent",
-                      })}
-                    </time>
+                  <IconChip icon={meta.icon} tone={meta.tone} />
+                  <div className="min-w-0 flex-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-navy-900">{item.title}</p>
+                      {!item.is_read && <span className="size-2 rounded-full bg-gold-500" />}
+                    </div>
+                    {item.message && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{item.message}</p>}
                   </div>
-                  {!item.is_read && <span className="notifications-unread-dot" />}
+                  <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
+                    <Pill tone={meta.tone}>{meta.label}</Pill>
+                    <time dateTime={item.created_at} className="text-[11px] text-slate-400">{fmtDateTime(item.created_at)}</time>
+                  </div>
                 </>
               );
-
-              return item.link ? (
-                <Link
-                  key={item.id}
-                  href={item.link}
-                  className={`notifications-page-item ${item.is_read ? "" : "unread"}`}
-                  onClick={async (event) => {
-                    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                    event.preventDefault();
-                    await markRead(item);
-                    router.push(item.link);
-                  }}
-                >
-                  {body}
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  key={item.id}
-                  className={`notifications-page-item ${item.is_read ? "" : "unread"}`}
-                  onClick={() => void markRead(item)}
-                >
-                  {body}
-                </button>
+              const cls = `flex w-full items-center gap-4 rounded-2xl border p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-lift ${item.is_read ? "bg-white" : "bg-gold-50/70 ring-1 ring-inset ring-gold-200"}`;
+              return (
+                <li key={item.id}>
+                  {item.link ? (
+                    <Link
+                      href={item.link}
+                      className={cls}
+                      onClick={async (event) => {
+                        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                        event.preventDefault();
+                        await markRead(item);
+                        router.push(item.link);
+                      }}
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <button type="button" className={cls} onClick={() => void markRead(item)}>
+                      {body}
+                    </button>
+                  )}
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
-      </main>
+      </Page>
     </ProtectedRoute>
   );
 }

@@ -21,11 +21,7 @@ import {
   updateAdminUser,
 } from "@/lib/api-service";
 import { ProtectedRoute } from "@/components/protected-route";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Avatar, Empty, ErrorNote, Notice, Page, PageHeader, PageSkeleton, Panel, Pill, Stat } from "@/components/mu/kit";
 
 type AdminUser = {
   id: number;
@@ -162,232 +158,112 @@ export function AdminDashboard() {
   if (user?.role !== "admin") {
     return (
       <ProtectedRoute>
-        <Alert className="m-6">
-          <AlertDescription>
-            Bu bo‘lim faqat administrator uchun.
-          </AlertDescription>
-        </Alert>
+        <Page>
+          <Notice tone="amber">Bu bo‘lim faqat administrator uchun.</Notice>
+        </Page>
       </ProtectedRoute>
     );
   }
 
+  const field = "h-11 w-full rounded-xl border border-input bg-white px-3 text-sm outline-none transition focus:border-gold-500 focus:ring-2 focus:ring-gold-200";
+
   return (
     <ProtectedRoute>
-      <main className="workspace-page admin-dashboard">
-        <div className="workspace-heading">
-          <div>
-            <p className="eyebrow">ADMINISTRATOR KABINETI</p>
-            <h1>Tizim boshqaruvi</h1>
-            <p>
-              Talaba, ustoz, darslar va LMS jarayonlarini bir joydan nazorat
-              qiling.
-            </p>
-          </div>
-          <Button asChild variant="outline">
-            <Link href="/manage">Ta’lim boshqaruvi</Link>
-          </Button>
-        </div>
-
-        {error && (
-          <Alert variant="destructive" className="mb-5">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+      <Page>
+        <PageHeader
+          eyebrow="Administrator"
+          title="Tizim boshqaruvi"
+          description="Talaba, ustoz, darslar va LMS jarayonlarini bir joydan nazorat qiling."
+          actions={
+            <Link href="/manage" className="inline-flex h-10 items-center gap-2 rounded-xl bg-navy-700 px-4 text-sm font-semibold text-white hover:bg-navy-800">
+              Ta’lim boshqaruvi <ChevronRight size={16} />
+            </Link>
+          }
+        />
+        {error && <div className="mb-4"><ErrorNote message={error} /></div>}
         {notice && (
-          <p role="status" className="success-note">
-            <CheckCircle2 size={16} />
-            {notice}
+          <p role="status" className="mb-4 flex items-center gap-2 rounded-2xl bg-emerald-50 p-3.5 text-sm text-emerald-800">
+            <CheckCircle2 size={16} /> {notice}
           </p>
         )}
 
         {loading ? (
-          <div className="notification-state">Yuklanmoqda…</div>
+          <PageSkeleton />
         ) : (
-          <>
-            <section className="admin-stat-grid" aria-label="Tizim ko‘rsatkichlari">
-              <div className="admin-stat-card primary">
-                <Users size={22} />
-                <span>Faol talabalar</span>
-                <strong>{stats.students_active}</strong>
-                <small>{stats.users_total} ta boshqariladigan hisob</small>
-              </div>
-              <div className="admin-stat-card">
-                <ShieldCheck size={22} />
-                <span>Ustozlar</span>
-                <strong>{stats.teachers_active}</strong>
-                <small>{stats.users_inactive} ta nofaol hisob</small>
-              </div>
-              <div className="admin-stat-card">
-                <BookOpen size={22} />
-                <span>Faol darslar</span>
-                <strong>{stats.courses_active}</strong>
-                <small>{stats.courses_archived} ta arxivda</small>
-              </div>
-              <div className="admin-stat-card">
-                <ClipboardCheck size={22} />
-                <span>Tekshirish kutilmoqda</span>
-                <strong>{stats.submissions_pending}</strong>
-                <small>{stats.assignments_total} ta topshiriq</small>
-              </div>
-              <div className="admin-stat-card">
-                <Activity size={22} />
-                <span>Bugungi darslar</span>
-                <strong>{stats.lessons_today}</strong>
-                <small>{stats.attendance_sessions_today} ta davomat sessiyasi</small>
-              </div>
+          <div className="space-y-6">
+            <section aria-label="Tizim ko‘rsatkichlari" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <Stat label="Faol talabalar" value={stats.students_active} hint={`${stats.users_total} ta hisob`} icon={Users} tone="navy" />
+              <Stat label="Ustozlar" value={stats.teachers_active} hint={`${stats.users_inactive} ta nofaol`} icon={ShieldCheck} tone="violet" />
+              <Stat label="Faol kurslar" value={stats.courses_active} hint={`${stats.courses_archived} ta arxivda`} icon={BookOpen} tone="blue" />
+              <Stat label="Tekshiruv kutmoqda" value={stats.submissions_pending} hint={`${stats.assignments_total} ta topshiriq`} icon={ClipboardCheck} tone="amber" />
+              <Stat label="Bugungi darslar" value={stats.lessons_today} hint={`${stats.attendance_sessions_today} ta davomat`} icon={Activity} tone="green" className="col-span-2 lg:col-span-1" />
             </section>
 
-            <section className="admin-quick-grid">
-              <Link href="/manage">
-                <span>
-                  <strong>Ta’lim boshqaruvi</strong>
-                  <small>Dars, material, topshiriq, baho va davomat</small>
-                </span>
-                <ChevronRight size={18} />
-              </Link>
-              <Link href="/my-courses">
-                <span>
-                  <strong>Dars jadvali</strong>
-                  <small>Barcha darslarning haftalik ko‘rinishi</small>
-                </span>
-                <ChevronRight size={18} />
-              </Link>
-            </section>
-
-            <div className="admin-main-grid">
-              <Card>
-                <CardHeader>
-                  <div className="admin-card-heading">
-                    <div>
-                      <CardTitle>Foydalanuvchilar</CardTitle>
-                      <p>Talaba va ustoz hisoblarini boshqaring.</p>
-                    </div>
-                    <div className="admin-user-filters">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          value={query}
-                          onChange={(e) => setQuery(e.target.value)}
-                          placeholder="Ism, login yoki ID..."
-                          className="pl-9"
-                        />
-                      </div>
-                      <select
-                        className="native-select"
-                        value={role}
-                        onChange={(e) =>
-                          setRole(e.target.value as "all" | "student" | "ustoz")
-                        }
-                        aria-label="Rol bo‘yicha saralash"
-                      >
-                        <option value="all">Barcha</option>
-                        <option value="student">Talabalar</option>
-                        <option value="ustoz">Ustozlar</option>
-                      </select>
-                    </div>
+            <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
+              <Panel
+                title="Foydalanuvchilar"
+                description="Talaba va ustoz hisoblarini boshqaring."
+                icon={Users}
+                action={
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <label className="flex h-10 items-center gap-2 rounded-xl border px-3">
+                      <Search size={15} className="text-slate-400" />
+                      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Ism, login yoki ID…" className="w-full min-w-[140px] bg-transparent text-sm outline-none" />
+                    </label>
+                    <select className="h-10 rounded-xl border bg-white px-3 text-sm" value={role} onChange={(e) => setRole(e.target.value as "all" | "student" | "ustoz")} aria-label="Rol bo‘yicha saralash">
+                      <option value="all">Barcha</option>
+                      <option value="student">Talabalar</option>
+                      <option value="ustoz">Ustozlar</option>
+                    </select>
                   </div>
-                </CardHeader>
-                <CardContent className="admin-user-list">
+                }
+              >
+                <ul className="thin-scroll max-h-[560px] divide-y overflow-y-auto">
                   {filteredUsers.map((item) => (
-                    <div className="admin-user-row" key={item.id}>
-                      <div className="admin-user-avatar">
-                        {item.fullname.slice(0, 1).toUpperCase()}
+                    <li key={item.id} className="flex items-center gap-3 py-3">
+                      <Avatar name={item.fullname} size={38} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-navy-900">{item.fullname}</p>
+                        <p className="truncate text-xs text-muted-foreground">@{item.username}{item.student_id ? ` · ${item.student_id}` : ""}</p>
                       </div>
-                      <div className="admin-user-name">
-                        <strong>{item.fullname}</strong>
-                        <small>
-                          @{item.username}
-                          {item.student_id ? ` · ${item.student_id}` : ""}
-                        </small>
-                      </div>
-                      <span className="admin-role-badge">
-                        {item.role === "student" ? "Talaba" : "Ustoz"}
-                      </span>
-                      <span
-                        className={`admin-account-state ${item.is_active ? "active" : "inactive"}`}
-                      >
-                        {item.is_active ? "Faol" : "Nofaol"}
-                      </span>
-                      <Button
+                      <Pill tone={item.role === "student" ? "blue" : "violet"} className="hidden sm:inline-flex">{item.role === "student" ? "Talaba" : "Ustoz"}</Pill>
+                      <Pill tone={item.is_active ? "green" : "red"} dot>{item.is_active ? "Faol" : "Nofaol"}</Pill>
+                      <button
                         type="button"
-                        size="sm"
-                        variant={item.is_active ? "outline" : "default"}
                         disabled={busy === item.id}
                         onClick={() => void toggleActive(item)}
+                        className="h-9 rounded-lg border px-3 text-xs font-semibold text-navy-700 hover:bg-navy-50 disabled:opacity-50"
                       >
-                        {item.is_active ? "O‘chirish" : "Faollashtirish"}
-                      </Button>
-                    </div>
+                        {item.is_active ? "O‘chirish" : "Yoqish"}
+                      </button>
+                    </li>
                   ))}
-                  {!filteredUsers.length && (
-                    <div className="empty-message small">
-                      Foydalanuvchi topilmadi.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                  {!filteredUsers.length && <li className="py-8"><Empty title="Foydalanuvchi topilmadi" /></li>}
+                </ul>
+              </Panel>
 
-              <Card className="admin-create-user">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <UserPlus size={20} />
-                    <CardTitle>Yangi foydalanuvchi</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <form className="space-y-4" onSubmit={createUser}>
-                    <div className="space-y-2">
-                      <Label htmlFor="admin-fullname">Ism-familiya</Label>
-                      <Input id="admin-fullname" name="fullname" required maxLength={50} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="admin-username">Login</Label>
-                      <Input id="admin-username" name="username" required maxLength={50} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="admin-role">Rol</Label>
-                      <select id="admin-role" name="role" className="native-select" defaultValue="student">
-                        <option value="student">Talaba</option>
-                        <option value="ustoz">Ustoz</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="admin-student-id">Talaba ID</Label>
-                      <Input id="admin-student-id" name="student_id" placeholder="Talaba uchun" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="admin-phone">Telefon</Label>
-                      <Input id="admin-phone" name="phone_number" placeholder="+998..." />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="admin-email">Elektron pochta</Label>
-                      <Input id="admin-email" name="email" type="email" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="admin-password">Boshlang‘ich parol</Label>
-                      <Input
-                        id="admin-password"
-                        name="password"
-                        type="password"
-                        minLength={8}
-                        autoComplete="new-password"
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Foydalanuvchi birinchi kirishda bu parolni almashtiradi.
-                      </p>
-                    </div>
-                    <Button type="submit" className="w-full" disabled={busy === "create"}>
-                      <UserPlus size={16} />
-                      {busy === "create" ? "Yaratilmoqda…" : "Hisob yaratish"}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+              <Panel title="Yangi foydalanuvchi" icon={UserPlus}>
+                <form className="space-y-3.5" onSubmit={createUser}>
+                  <input name="fullname" required maxLength={50} placeholder="Ism-familiya" aria-label="Ism-familiya" className={field} />
+                  <input name="username" required maxLength={50} placeholder="Login" aria-label="Login" className={field} />
+                  <select name="role" className={field} defaultValue="student" aria-label="Rol">
+                    <option value="student">Talaba</option>
+                    <option value="ustoz">Ustoz</option>
+                  </select>
+                  <input name="student_id" placeholder="Talaba ID (talaba uchun)" aria-label="Talaba ID" className={field} />
+                  <input name="phone_number" placeholder="+998…" aria-label="Telefon" className={field} />
+                  <input name="email" type="email" placeholder="Elektron pochta" aria-label="Email" className={field} />
+                  <input name="password" type="password" minLength={8} autoComplete="new-password" required placeholder="Boshlang‘ich parol" aria-label="Boshlang‘ich parol" className={field} />
+                  <p className="text-xs text-muted-foreground">Foydalanuvchi birinchi kirishda parolni almashtiradi.</p>
+                  <button type="submit" disabled={busy === "create"} className="h-11 w-full rounded-xl bg-navy-700 text-sm font-semibold text-white hover:bg-navy-800 disabled:opacity-60">
+                    {busy === "create" ? "Yaratilmoqda…" : "Hisob yaratish"}
+                  </button>
+                </form>
+              </Panel>
             </div>
-          </>
+          </div>
         )}
-      </main>
+      </Page>
     </ProtectedRoute>
   );
 }

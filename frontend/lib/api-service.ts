@@ -356,3 +356,10 @@ export async function markAllNotificationsRead() {
   window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
   return result;
 }
+
+// Quyidagi bo‘limlar hozircha faqat demo rejimda ishlaydi (backendda endpoint yo‘q).
+export const getFinance = () => fetchAPI("/finance/");
+export const getRequests = () => fetchAPI("/requests/");
+export const createRequest = (data: Record<string, unknown>) => fetchAPI("/requests/", post(data));
+export const getCampusEvents = () => fetchAPI("/campus-events/");
+export const toggleCampusEvent = (id: number) => fetchAPI(`/campus-events/${id}/register/`, post({}));

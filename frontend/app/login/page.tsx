@@ -70,13 +70,13 @@ export default function Login() {
 
   return (
     <AuthLayout>
-      <div className="auth-form">
-        <div className="auth-symbol">
-          <GraduationCap size={25} />
+      <div>
+        <div className="mb-5 grid size-12 place-items-center rounded-2xl bg-navy-700 text-gold-500">
+          <GraduationCap size={24} />
         </div>
-        <p className="eyebrow">SHAXSIY KABINET</p>
-        <h2>Xush kelibsiz!</h2>
-        <p className="auth-intro">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold-600">Shaxsiy kabinet</p>
+        <h2 className="mt-1 font-heading text-3xl font-semibold text-navy-900">Xush kelibsiz!</h2>
+        <p className="mb-7 mt-2 text-sm text-muted-foreground">
           Universitet bergan hisob ma’lumotlari bilan tizimga kiring.
         </p>
 
@@ -117,7 +117,7 @@ export default function Login() {
 
               <div className="space-y-2">
                 <Label htmlFor="password">Parol</Label>
-                <div className="password-input">
+                <div className="relative [&_input]:pr-11">
                   <Input
                     id="password"
                     type={show ? "text" : "password"}
@@ -129,6 +129,7 @@ export default function Login() {
                   />
                   <button
                     type="button"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-navy-700"
                     onClick={() => setShow(!show)}
                     aria-label={show ? "Parolni yashirish" : "Parolni ko‘rsatish"}
                   >
@@ -138,7 +139,7 @@ export default function Login() {
               </div>
 
               <Button
-                className="auth-submit"
+                className="h-11 w-full rounded-xl bg-navy-700 text-white hover:bg-navy-800"
                 disabled={isLoading || !username.trim() || !password}
               >
                 {isLoading ? "Kirilmoqda…" : "Kabinetga kirish"}
@@ -147,8 +148,8 @@ export default function Login() {
             </form>
 
             {DEMO_MODE && (
-              <div className="mt-5 rounded-lg border border-dashed p-4">
-                <p className="mb-3 text-center text-sm font-medium">
+              <div className="mt-6 rounded-2xl border border-gold-200 bg-gold-50 p-4">
+                <p className="mb-3 text-center text-sm font-semibold text-navy-800">
                   Demo rejim — parolsiz kirish
                 </p>
                 <div className="grid grid-cols-3 gap-2">
@@ -161,6 +162,7 @@ export default function Login() {
                       key={name}
                       type="button"
                       variant="outline"
+                      className="rounded-xl bg-white"
                       disabled={isLoading}
                       onClick={async () => {
                         clearError();
@@ -190,8 +192,7 @@ export default function Login() {
               </button>
             )}
 
-            <div className="auth-separator" />
-            <p className="auth-support">
+            <p className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">
               Yangi hisoblarni faqat universitet administratori yaratadi.
             </p>
           </>
@@ -244,7 +245,7 @@ export default function Login() {
               </div>
 
               <Button
-                className="auth-submit"
+                className="h-11 w-full rounded-xl bg-navy-700 text-white hover:bg-navy-800"
                 disabled={recoveryBusy || !phone.trim() || !studentId.trim()}
               >
                 {recoveryBusy ? "Yuborilmoqda…" : "Telegramga yuborish"}

@@ -1,8 +1,5 @@
-import { LMSDashboard } from "@/components/lms-dashboard";
-export const metadata = {
-  title: "MU LMS — dizayn namoyishi",
-  robots: { index: false, follow: false },
-};
+import { redirect } from "next/navigation";
+
 export default function Preview() {
-  return <LMSDashboard demo />;
+  redirect("/login");
 }

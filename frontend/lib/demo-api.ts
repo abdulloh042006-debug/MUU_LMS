@@ -224,9 +224,9 @@ const schedule: [number, number, number, string][] = [
 ];
 const events: Row[] = [];
 let eventId = 1;
-schedule.forEach(([day, period, course, room]) => {
+[-1, 0, 1].flatMap((w) => schedule.map((x) => [...x, w] as [number, number, number, string, number])).forEach(([day, period, course, room, w]) => {
   const [h, m] = periodStarts[period];
-  const start = new Date(weekStart + day * DAY);
+  const start = new Date(weekStart + (day + w * 7) * DAY);
   start.setHours(h, m, 0, 0);
   events.push({
     id: eventId++,
@@ -314,6 +314,33 @@ const notifications: Row[] = [
   { id: 6, user: 1, type: "system", title: "Demo rejim", message: "Bu demo ma’lumotlar bilan ishlaydigan namoyish.", link: "", is_read: false, created_at: iso(now - 60_000) },
 ];
 
+// ---------- Demo-only bo‘limlar (haqiqiy backendda yo‘q): moliya, murojaatlar, tadbirlar ----------
+const finance = {
+  academic_year: "2026–2027",
+  contract_amount: 28_000_000,
+  grant_percent: 50,
+  grant_name: "Akademik grant (GPA 4.5+)",
+  scholarship_monthly: 1_050_000,
+  payments: [
+    { id: 1, date: iso(now - 70 * DAY), title: "Kontrakt — 1-semestr (50%)", amount: 7_000_000, status: "paid" },
+    { id: 2, date: iso(now - 20 * DAY), title: "Kontrakt — 2-chorak", amount: 3_500_000, status: "paid" },
+    { id: 3, date: iso(now + 12 * DAY), title: "Kontrakt — 3-chorak", amount: 3_500_000, status: "due" },
+    { id: 4, date: iso(now + 75 * DAY), title: "Kontrakt — 4-chorak", amount: 3_500_000, status: "upcoming" },
+  ],
+};
+const requestRows: Row[] = [
+  { id: 1, type: "Talabalik ma’lumotnomasi", language: "O‘zbek", purpose: "Bank uchun", status: "ready", created_at: iso(now - 9 * DAY), updated_at: iso(now - 7 * DAY), subject: "Ma’lumotnoma so‘rovi", description: "Bank kartasi uchun kerak.", user: 3 },
+  { id: 2, type: "Akademik ma’lumotnoma", language: "Ingliz", purpose: "Almashinuv dasturi", status: "processing", created_at: iso(now - 2 * DAY), updated_at: iso(now - DAY), subject: "Transkript (ingliz tilida)", description: "", user: 3 },
+];
+const campusEvents: Row[] = [
+  { id: 1, title: "Hackathon: Smart Campus", category: "Texnologiya", starts_at: iso(now + 5 * DAY), location: "Katta zal, A blok", description: "24 soatlik jamoaviy hackathon. Eng yaxshi loyihalar mukofotlanadi.", seats: 80, registered: 54 },
+  { id: 2, title: "Karyera kuni", category: "Karyera", starts_at: iso(now + 9 * DAY), location: "Markaziy maydon", description: "20+ kompaniya vakillari bilan uchrashuv va suhbatlar.", seats: 300, registered: 188 },
+  { id: 3, title: "Ochiq ma’ruza: Sun’iy intellekt kelajagi", category: "Ma’ruza", starts_at: iso(now + 15 * DAY), location: "B-201 auditoriya", description: "Mehmon spiker bilan ochiq muloqot.", seats: 120, registered: 71 },
+  { id: 4, title: "Talabalar sport musobaqasi", category: "Sport", starts_at: iso(now + 22 * DAY), location: "Sport majmuasi", description: "Mini-futbol va stol tennisi turnirlari.", seats: 150, registered: 96 },
+];
+const eventRegs = new Set<number>([3]);
+const eventsOut = () => campusEvents.map((e) => ({ ...e, registered: e.registered + (eventRegs.has(e.id) ? 1 : 0), is_registered: eventRegs.has(e.id) }));
+
 // ---------- Sessiya ----------
 const SESSION_KEY = "mu-demo-user";
 let currentUserId: number | null = null;
@@ -400,6 +427,26 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
   }
 
   const user = me();
+
+  // Demo-only bo‘limlar
+  if (at("finance")) return finance;
+  if (seg[0] === "requests") {
+    if (method === "POST") {
+      const r: Row = { id: requestRows.length + 1, type: String(body.type || "Boshqa"), language: String(body.language || "O‘zbek"), purpose: String(body.purpose || ""), subject: String(body.subject || ""), description: String(body.description || ""), status: "new", created_at: iso(Date.now()), updated_at: iso(Date.now()), user: user.id };
+      requestRows.unshift(r);
+      return r;
+    }
+    return requestRows.filter((r) => r.user === user.id || user.role !== "student");
+  }
+  if (seg[0] === "campus-events") {
+    if (method === "POST" && seg[2] === "register") {
+      const id = num(1);
+      if (eventRegs.has(id)) eventRegs.delete(id);
+      else eventRegs.add(id);
+      return eventsOut();
+    }
+    return eventsOut();
+  }
 
   // Profil
   if (seg[0] === "user" && seg[1] === "profile") {

@@ -1,231 +1,127 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
-import {
-  CalendarDays,
-  CheckCircle2,
-  ChevronRight,
-  ClipboardCheck,
-  GraduationCap,
-  Users,
-} from "lucide-react";
-import {
-  getCalendar,
-  getCourses,
-  getTeacherSubmissions,
-} from "@/lib/api-service";
+import { CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, GraduationCap, Users } from "lucide-react";
+import { getCalendar, getCourses, getTeacherSubmissions } from "@/lib/api-service";
 import { useAuth } from "@/contexts/auth-context";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, Empty, Page, PageSkeleton, Panel, Pill, Stat, settle, useLoad } from "@/components/mu/kit";
+import { courseColor, dayKey, fmtFull, fmtTime, greeting } from "@/lib/format";
 
 export function TeacherHome() {
   const { user } = useAuth();
-  const [courses, setCourses] = useState<any[]>([]);
-  const [rows, setRows] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const { data, loading } = useLoad(() => settle({ courses: getCourses, rows: getTeacherSubmissions, events: getCalendar }));
 
-  useEffect(() => {
-    Promise.all([getCourses(), getTeacherSubmissions(), getCalendar()])
-      .then(([courseRows, submissionRows, eventRows]) => {
-        setCourses(courseRows);
-        setRows(submissionRows);
-        setEvents(eventRows);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setLoading(false));
-  }, []);
+  const v = useMemo(() => {
+    const courses: any[] = data?.courses ?? [];
+    const rows: any[] = data?.rows ?? [];
+    const events: any[] = data?.events ?? [];
+    const today = dayKey(Date.now());
+    return {
+      courses,
+      pending: rows.filter((r) => r.grade === null),
+      graded: rows.filter((r) => r.grade !== null).length,
+      lessons: events
+        .filter((e) => e.event_type === "lesson" && dayKey(e.start_time) === today)
+        .sort((a, b) => +new Date(a.start_time) - +new Date(b.start_time)),
+    };
+  }, [data]);
 
-  const pending = useMemo(
-    () => rows.filter((row) => row.grade === null),
-    [rows],
-  );
-
-  const todayLessons = useMemo(() => {
-    const today = new Date();
-    return events
-      .filter((event) => {
-        if (event.event_type && event.event_type !== "lesson") return false;
-        const date = new Date(event.start_date);
-        return (
-          date.getFullYear() === today.getFullYear() &&
-          date.getMonth() === today.getMonth() &&
-          date.getDate() === today.getDate()
-        );
-      })
-      .sort(
-        (a, b) =>
-          new Date(a.start_date).getTime() - new Date(b.start_date).getTime(),
-      );
-  }, [events]);
+  const first = (user?.fullname || "Ustoz").split(" ").slice(-1)[0];
 
   return (
-    <main className="workspace-page teacher-dashboard">
-      <div className="workspace-heading">
-        <div>
-          <p className="eyebrow">USTOZ KABINETI</p>
-          <h1>
-            {user?.first_name
-              ? `Assalomu alaykum, ${user.first_name}`
-              : "Ustoz kabineti"}
-          </h1>
-          <p>Bugungi darslar va tekshirishni kutayotgan ishlar.</p>
-        </div>
-        <Button asChild>
-          <Link href="/manage">Boshqaruvni ochish</Link>
-        </Button>
-      </div>
-
-      {error && (
-        <Alert variant="destructive" className="mb-5">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
+    <Page>
       {loading ? (
-        <div className="notification-state">Yuklanmoqda…</div>
+        <PageSkeleton />
       ) : (
-        <>
-          <section className="teacher-action-grid">
-            <Link href="/my-courses" className="teacher-action-card">
-              <div className="teacher-action-icon">
-                <CalendarDays size={21} />
-              </div>
-              <div>
-                <span>Bugungi darslar</span>
-                <strong>{todayLessons.length} ta</strong>
-                <small>Dars jadvali va davomatni ochish</small>
-              </div>
-              <ChevronRight size={18} />
-            </Link>
-
-            <Link href="/manage?tab=grading" className="teacher-action-card">
-              <div className="teacher-action-icon">
-                <ClipboardCheck size={21} />
-              </div>
-              <div>
-                <span>Baholash kutilmoqda</span>
-                <strong>{pending.length} ta</strong>
-                <small>Talabalar yuborgan ishlarni tekshirish</small>
-              </div>
-              <ChevronRight size={18} />
-            </Link>
-
-            <Link href="/manage" className="teacher-action-card">
-              <div className="teacher-action-icon">
-                <GraduationCap size={21} />
-              </div>
-              <div>
-                <span>Faol darslar</span>
-                <strong>{courses.filter((c) => !c.is_archived).length} ta</strong>
-                <small>Material, topshiriq va talabalar</small>
-              </div>
-              <ChevronRight size={18} />
-            </Link>
+        <div className="space-y-6">
+          <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-navy-700 via-navy-800 to-navy-950 p-6 text-white shadow-lift md:p-8">
+            <div className="pointer-events-none absolute -right-16 -top-16 size-64 rounded-full bg-gold-500/15 blur-2xl" />
+            <p className="relative text-xs font-medium uppercase tracking-[0.16em] text-gold-400">{fmtFull(Date.now())}</p>
+            <h1 className="relative mt-2 text-3xl font-semibold md:text-4xl">{greeting()}, {first}!</h1>
+            <p className="relative mt-2 max-w-xl text-sm text-navy-200">
+              Bugun {v.lessons.length} ta dars bor, {v.pending.length} ta ish tekshirishni kutmoqda.
+            </p>
+            <div className="relative mt-5 flex flex-wrap gap-2.5">
+              <Link href="/calendar" className="inline-flex items-center gap-2 rounded-xl bg-gold-500 px-4 py-2.5 text-sm font-semibold text-navy-950 hover:bg-gold-400">
+                <CalendarDays size={17} /> Jadval va davomat
+              </Link>
+              <Link href="/manage?tab=grading" className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold ring-1 ring-inset ring-white/20 hover:bg-white/15">
+                <ClipboardCheck size={17} /> Baholash
+              </Link>
+            </div>
           </section>
 
-          <div className="management-grid">
-            <Card>
-              <CardHeader>
-                <CardTitle>Bugungi jadval</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {todayLessons.map((lesson) => (
-                  <Link
-                    href="/my-courses"
-                    className="teacher-today-row"
-                    key={lesson.id}
-                  >
-                    <div className="teacher-time">
-                      {new Date(lesson.start_date).toLocaleTimeString("uz-UZ", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        timeZone: "Asia/Tashkent",
-                      })}
-                    </div>
-                    <div>
-                      <strong>{lesson.title}</strong>
-                      <small>
-                        {lesson.for_group || lesson.course_title || "Guruh"} ·{" "}
-                        {lesson.room || "Xona belgilanmagan"}
-                      </small>
-                    </div>
-                    <ChevronRight size={17} />
-                  </Link>
-                ))}
-                {!todayLessons.length && (
-                  <div className="empty-message small">
-                    <CheckCircle2 />
-                    Bugun rejalashtirilgan dars yo‘q.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Tekshirish navbati</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {pending.slice(0, 8).map((row) => (
-                  <Link href={`/manage?tab=grading&course=${row.assignment.course}`} className="teacher-pending-row" key={row.id}>
-                    <div className="teacher-student-avatar">
-                      {(row.student_name || "T").slice(0, 1)}
-                    </div>
-                    <div>
-                      <strong>{row.student_name}</strong>
-                      <small>
-                        {row.assignment.title} · {row.attempt}-urinish
-                      </small>
-                    </div>
-                    <ChevronRight size={17} />
-                  </Link>
-                ))}
-                {!pending.length && (
-                  <div className="empty-message small">
-                    <CheckCircle2 />
-                    Barcha yuborilgan ishlar baholangan.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Stat label="Bugungi darslar" value={v.lessons.length} icon={CalendarDays} tone="navy" href="/calendar" />
+            <Stat label="Tekshirish kutmoqda" value={v.pending.length} icon={ClipboardCheck} tone="amber" href="/manage?tab=grading" />
+            <Stat label="Baholangan" value={v.graded} icon={CheckCircle2} tone="green" />
+            <Stat label="Faol kurslar" value={v.courses.filter((c) => !c.is_archived).length} icon={GraduationCap} tone="violet" href="/manage" />
           </div>
 
-          <Card className="mt-5">
-            <CardHeader>
-              <CardTitle>Darslarim</CardTitle>
-            </CardHeader>
-            <CardContent className="teacher-course-list">
-              {courses.map((course) => (
-                <Link
-                  key={course.id}
-                  href={`/manage?course=${course.id}`}
-                  className="teacher-course-row"
-                >
-                  <div>
-                    <strong>{course.title}</strong>
-                    <small>
-                      {course.code} · {course.student_count} talaba
-                      {course.is_archived ? " · Arxiv" : ""}
-                    </small>
-                  </div>
-                  <span>
-                    <Users size={15} />
-                    {course.student_count}
-                  </span>
-                  <ChevronRight size={17} />
-                </Link>
-              ))}
-              {!courses.length && (
-                <p>Boshqaruv bo‘limida birinchi darsingizni yarating.</p>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Panel title="Bugungi jadval" icon={CalendarDays}>
+              {v.lessons.length ? (
+                <ul className="space-y-2.5">
+                  {v.lessons.map((l) => (
+                    <li key={l.id}>
+                      <Link href="/calendar" className="flex items-center gap-4 rounded-2xl border p-3.5 transition hover:bg-slate-50" style={{ borderLeft: `4px solid ${courseColor(l.course).dot}` }}>
+                        <span className="w-12 font-heading text-sm font-semibold text-navy-900">{fmtTime(l.start_time)}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">{l.title}</p>
+                          <p className="truncate text-xs text-muted-foreground">{l.for_group || "Guruh"} · {l.room || "Xona belgilanmagan"}</p>
+                        </div>
+                        <ChevronRight size={16} className="text-slate-400" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Empty icon={CheckCircle2} title="Bugun dars yo‘q" />
               )}
-            </CardContent>
-          </Card>
-        </>
+            </Panel>
+
+            <Panel title="Tekshirish navbati" icon={ClipboardCheck} action={<Pill tone="amber">{v.pending.length}</Pill>}>
+              {v.pending.length ? (
+                <ul className="divide-y">
+                  {v.pending.slice(0, 6).map((r) => (
+                    <li key={r.id}>
+                      <Link href={`/manage?tab=grading&course=${r.assignment.course}`} className="flex items-center gap-3 py-3 hover:opacity-80">
+                        <Avatar name={r.student_name} size={36} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">{r.student_name}</p>
+                          <p className="truncate text-xs text-muted-foreground">{r.assignment.title} · {r.attempt}-urinish</p>
+                        </div>
+                        <ChevronRight size={16} className="text-slate-400" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <Empty icon={CheckCircle2} title="Hammasi baholangan" />
+              )}
+            </Panel>
+          </div>
+
+          <Panel title="Kurslarim" icon={GraduationCap}>
+            {v.courses.length ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {v.courses.map((c) => (
+                  <Link key={c.id} href={`/my-courses/${c.id}`} className="flex items-center gap-3 rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:shadow-lift">
+                    <span className="grid size-11 place-items-center rounded-xl text-xs font-bold" style={{ background: courseColor(c.id).soft, color: courseColor(c.id).text }}>{String(c.code).slice(0, 3)}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{c.title}</p>
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground"><Users size={12} />{c.student_count} talaba{c.is_archived ? " · Arxiv" : ""}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <Empty title="Birinchi kursingizni yarating" text="Boshqaruv bo‘limida kurs qo‘shing." />
+            )}
+          </Panel>
+        </div>
       )}
-    </main>
+    </Page>
   );
 }
