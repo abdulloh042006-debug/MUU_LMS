@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Award, BookOpen, CalendarDays, ClipboardList, Download, FileText, UserCheck } from "lucide-react";
+import { ArrowLeft, Award, BookOpen, CalendarDays, ChevronDown, ClipboardList, Download, FileText, Layers, ListChecks, UserCheck } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
-import { downloadFile, getAssignments, getBooks, getCalendar, getCourses, getMyAttendance, getMyGrades } from "@/lib/api-service";
+import { downloadFile, getAssignments, getBooks, getCalendar, getCourseModules, getCourses, getMyAttendance, getMyGrades } from "@/lib/api-service";
 import { useAuth } from "@/contexts/auth-context";
 import { Avatar, Empty, ErrorNote, IconChip, Page, PageSkeleton, Panel, Pill, Segmented, Stat, settle, useLoad } from "@/components/mu/kit";
 import { courseColor, fmtDateTime, fmtDay, fmtTime, timeLeft } from "@/lib/format";
@@ -30,10 +30,11 @@ function Inner() {
   const cid = Number(id);
   const { user } = useAuth();
   const student = user?.role === "student";
-  const [tab, setTab] = useState<"overview" | "materials" | "tasks" | "attendance">("overview");
+  const [tab, setTab] = useState<"modules" | "overview" | "materials" | "tasks" | "attendance">("modules");
+  const [openMod, setOpenMod] = useState<number | null>(null);
   const [dlError, setDlError] = useState("");
   const { data, loading, error, reload } = useLoad(() =>
-    settle({ courses: getCourses, books: getBooks, assignments: getAssignments, calendar: getCalendar, grades: student ? getMyGrades : async () => [], attendance: student ? getMyAttendance : async () => [] }),
+    settle({ modules: () => getCourseModules(cid), courses: getCourses, books: getBooks, assignments: getAssignments, calendar: getCalendar, grades: student ? getMyGrades : async () => [], attendance: student ? getMyAttendance : async () => [] }),
   );
 
   const v = useMemo(() => {
@@ -86,6 +87,7 @@ function Inner() {
           value={tab}
           onChange={setTab}
           options={[
+            { value: "modules", label: "Modullar", count: (data?.modules ?? []).length || undefined },
             { value: "overview", label: "Umumiy" },
             { value: "materials", label: "Materiallar", count: v.books.length },
             { value: "tasks", label: "Topshiriqlar", count: v.assignments.length },
@@ -94,6 +96,66 @@ function Inner() {
         />
       </div>
       {dlError && <div className="mb-4"><ErrorNote message={dlError} /></div>}
+
+      {tab === "modules" &&
+        (data?.modules?.length ? (
+          <ol className="space-y-3">
+            {(data.modules as any[]).map((m, i) => {
+              const open = openMod === m.id || (openMod === null && i === 0);
+              const count = m.materials.length + m.assignments.length + m.quizzes.length;
+              return (
+                <li key={m.id} className="overflow-hidden rounded-2xl border bg-white shadow-card">
+                  <button onClick={() => setOpenMod(open ? -1 : m.id)} className="flex w-full items-center gap-4 p-4 text-left" aria-expanded={open}>
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-navy-700 font-heading text-sm font-semibold text-white">{m.week}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[11px] font-semibold uppercase tracking-wider text-gold-700">{m.week}-hafta</span>
+                      <span className="block truncate text-sm font-semibold text-navy-900 md:text-[15px]">{m.title}</span>
+                    </span>
+                    <Pill>{count} element</Pill>
+                    <ChevronDown size={18} className={`text-slate-400 transition ${open ? "rotate-180" : ""}`} />
+                  </button>
+                  {open && (
+                    <div className="border-t bg-slate-50/50 p-4">
+                      <p className="mb-3 text-xs text-muted-foreground">{m.summary}</p>
+                      <ul className="space-y-2">
+                        {m.materials.map((b: any) => (
+                          <li key={`b${b.id}`}>
+                            <button onClick={() => downloadFile(b.file).catch((e) => setDlError(e instanceof Error ? e.message : String(e)))} className="flex w-full items-center gap-3 rounded-xl border bg-white p-3 text-left hover:bg-slate-50">
+                              <IconChip icon={FileText} tone="violet" size={32} />
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium">{b.title}</span>
+                              <Download size={15} className="text-slate-400" />
+                            </button>
+                          </li>
+                        ))}
+                        {m.assignments.map((a: any) => (
+                          <li key={`a${a.id}`}>
+                            <Link href={`/assignments/${a.id}`} className="flex items-center gap-3 rounded-xl border bg-white p-3 hover:bg-slate-50">
+                              <IconChip icon={ClipboardList} tone="amber" size={32} />
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium">{a.title}</span>
+                              {student && <Pill tone={a.is_submitted ? "green" : "amber"}>{a.is_submitted ? "Topshirilgan" : "Topshiriq"}</Pill>}
+                            </Link>
+                          </li>
+                        ))}
+                        {m.quizzes.map((z: any) => (
+                          <li key={`q${z.id}`}>
+                            <Link href={`/quizzes/${z.id}`} className="flex items-center gap-3 rounded-xl border bg-white p-3 hover:bg-slate-50">
+                              <IconChip icon={ListChecks} tone="blue" size={32} />
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium">{z.title}</span>
+                              <Pill tone={z.best_score !== null ? "green" : "blue"}>{z.best_score !== null ? `${z.best_score} ball` : `Test · ${z.question_count} savol`}</Pill>
+                            </Link>
+                          </li>
+                        ))}
+                        {!count && <li className="py-3 text-center text-xs text-muted-foreground">Bu modulga hali material qo‘shilmagan.</li>}
+                      </ul>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <Empty icon={Layers} title="Modullar hozircha faqat demo rejimda" text="Materiallar, topshiriqlar va davomat yonidagi bo‘limlarda." />
+        ))}
 
       {tab === "overview" && (
         <div className="grid gap-6 lg:grid-cols-2">

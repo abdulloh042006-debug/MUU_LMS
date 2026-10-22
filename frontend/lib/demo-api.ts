@@ -138,6 +138,7 @@ const books: Row[] = bookSpecs.map(([course, title, subject], i) => ({
   file: `/media/books/demo-material-${i + 1}.pdf`,
   uploaded_by: 2,
   uploaded_at: iso(weekStart - (i + 2) * DAY),
+  module: null as number | null,
 }));
 const bookOut = (b: Row) => ({ ...b, course_title: courseTitle(b.course) });
 
@@ -379,6 +380,80 @@ const campusEvents: Row[] = [
 const eventRegs = new Set<number>([3]);
 const eventsOut = () => campusEvents.map((e) => ({ ...e, registered: e.registered + (eventRegs.has(e.id) ? 1 : 0), is_registered: eventRegs.has(e.id) }));
 
+// ---------- Demo-only: modullar, testlar, imtihonlar ----------
+const moduleTitles: Record<number, string[]> = {
+  1: ["HTML asoslari", "CSS va moslashuvchan dizayn", "JavaScript asoslari", "DOM va hodisalar"],
+  2: ["Relyatsion model", "SQL: SELECT", "JOIN va guruhlash", "Normallashtirish"],
+  3: ["O‘zgaruvchilar va turlar", "Shartlar va sikllar", "Funksiyalar", "Modullar va fayllar"],
+};
+const modules: Row[] = [];
+courses.forEach((c) => {
+  const titles = moduleTitles[c.id] ?? ["Kirish", "Asosiy tushunchalar", "Amaliyot", "Yakuniy loyiha"];
+  titles.forEach((t, i) => modules.push({ id: c.id * 10 + i + 1, course: c.id, week: i + 1, title: t, summary: `${i + 1}-hafta: ${t.toLowerCase()} bo‘yicha ma’ruza, amaliyot va mustaqil ish.` }));
+});
+const moduleFor = (course: number, i: number) => {
+  const list = modules.filter((m) => m.course === course);
+  return list[Math.min(i, list.length - 1)]?.id ?? null;
+};
+const q = (text: string, options: string[], correct: number) => ({ text, options, correct });
+const quizzes: Row[] = [
+  {
+    id: 1, course: 1, module: 11, title: "HTML asoslari — test", time_limit_min: 10, max_attempts: 2, deadline: iso(now + 4 * DAY), created_at: iso(now - 3 * DAY),
+    questions: [
+      q("Sahifadagi eng katta sarlavha qaysi teg?", ["<h6>", "<h1>", "<header>", "<title>"], 1),
+      q("Havola (link) qaysi teg bilan yoziladi?", ["<link>", "<href>", "<a>", "<url>"], 2),
+      q("Rasm qo‘shish uchun qaysi atribut majburiy?", ["src", "href", "title", "class"], 0),
+      q("Tartiblangan ro‘yxat qaysi?", ["<ul>", "<ol>", "<li>", "<dl>"], 1),
+      q("Formadagi matn maydoni qaysi?", ["<input type=\"text\">", "<textbox>", "<field>", "<text>"], 0),
+    ],
+  },
+  {
+    id: 2, course: 2, module: 22, title: "SQL SELECT — viktorina", time_limit_min: 8, max_attempts: 1, deadline: iso(now + 6 * DAY), created_at: iso(now - 2 * DAY),
+    questions: [
+      q("Takrorlanmas qiymatlarni olish uchun?", ["UNIQUE", "DISTINCT", "SINGLE", "ONLY"], 1),
+      q("Natijani saralash uchun?", ["SORT BY", "ORDER BY", "GROUP BY", "ARRANGE"], 1),
+      q("Shart qo‘yish uchun qaysi kalit so‘z?", ["WHERE", "IF", "WHEN", "HAVING ONLY"], 0),
+      q("Qatorlar sonini sanash funksiyasi?", ["SUM()", "COUNT()", "TOTAL()", "NUM()"], 1),
+    ],
+  },
+  {
+    id: 3, course: 3, module: 31, title: "Python: o‘zgaruvchilar", time_limit_min: 5, max_attempts: 3, deadline: iso(now - DAY), created_at: iso(now - 8 * DAY),
+    questions: [
+      q("type(3.0) natijasi?", ["int", "float", "str", "double"], 1),
+      q("Ro‘yxat qaysi qavs bilan yoziladi?", ["()", "{}", "[]", "<>"], 2),
+      q("Butun bo‘lish operatori?", ["/", "//", "%", "**"], 1),
+    ],
+  },
+];
+const quizAttempts: Row[] = [];
+students().forEach((s, i) => {
+  if (s.username === "talaba_demo") return;
+  [3, 1].forEach((qid) => {
+    if ((i + qid) % 3 === 0) return;
+    const quiz = quizzes.find((x) => x.id === qid)!;
+    const correct = Math.max(1, quiz.questions.length - ((i + qid) % 3));
+    quizAttempts.push({ id: quizAttempts.length + 1, quiz: qid, student: s.id, correct, total: quiz.questions.length, score: Math.round((correct / quiz.questions.length) * 100), answers: [], finished_at: iso(now - ((i % 4) + 1) * 3600_000) });
+  });
+});
+quizAttempts.push({ id: quizAttempts.length + 1, quiz: 3, student: 3, correct: 2, total: 3, score: 67, answers: [], finished_at: iso(now - 2 * DAY) });
+const quizOut = (z: Row, viewer: Row) => {
+  const mine = quizAttempts.filter((a) => a.quiz === z.id && a.student === viewer.id);
+  const all = quizAttempts.filter((a) => a.quiz === z.id);
+  return {
+    id: z.id, course: z.course, course_title: courseTitle(z.course), module: z.module, title: z.title, time_limit_min: z.time_limit_min, max_attempts: z.max_attempts,
+    deadline: z.deadline, question_count: z.questions.length, attempts_used: mine.length, best_score: mine.length ? Math.max(...mine.map((a) => a.score)) : null,
+    attempt_count: all.length, average_score: all.length ? Math.round(all.reduce((x, a) => x + a.score, 0) / all.length) : null, is_overdue: Date.now() > new Date(z.deadline).getTime(),
+  };
+};
+
+const exams: Row[] = [
+  { id: 1, course: 2, kind: "Oraliq nazorat", starts_at: iso(weekStart + 9 * DAY + 10 * 3600_000), duration_min: 90, room: "B-204", seat: "14", format: "Yozma ish", max_score: 30, score: null },
+  { id: 2, course: 1, kind: "Oraliq nazorat", starts_at: iso(weekStart + 11 * DAY + 9 * 3600_000), duration_min: 80, room: "A-301 (kompyuter xona)", seat: "7", format: "Amaliy (kompyuterda)", max_score: 30, score: null },
+  { id: 3, course: 3, kind: "Oraliq nazorat", starts_at: iso(weekStart - 9 * DAY + 9 * 3600_000), duration_min: 60, room: "A-302", seat: "21", format: "Test", max_score: 30, score: 26 },
+  { id: 4, course: 7, kind: "Yakuniy imtihon", starts_at: iso(weekStart + 51 * DAY + 9 * 3600_000), duration_min: 120, room: "Katta zal", seat: "—", format: "Test + og‘zaki", max_score: 50, score: null },
+  { id: 5, course: 4, kind: "Yakuniy imtihon", starts_at: iso(weekStart + 53 * DAY + 13 * 3600_000), duration_min: 120, room: "B-205", seat: "—", format: "Yozma ish", max_score: 50, score: null },
+];
+
 // ---------- Demo-only: ustoz bo‘limlari (haqiqiy backendda yo‘q) ----------
 const appeals: Row[] = [
   { id: 1, student: 5, assignment: 2, course: 1, reason: "Kod ishlaydi, lekin 2 ball kam qo‘yilgan deb o‘ylayman.", old_grade: 78, status: "pending", created_at: iso(now - 5 * 3600_000) },
@@ -529,6 +604,73 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
       }
       return sentMessages;
     }
+  }
+
+  // Modullar, testlar, imtihonlar (demo)
+  if (at("courses", "#", "modules")) {
+    const cid = num(1);
+    const bk = books.filter((b) => b.course === cid);
+    const as = assignments.filter((a) => a.course === cid);
+    return modules.filter((m) => m.course === cid).map((m, i, arr) => ({
+      ...m,
+      materials: bk.filter((_, k) => moduleFor(cid, k) === m.id || (i === arr.length - 1 && k >= arr.length)).map(bookOut),
+      assignments: as.filter((_, k) => moduleFor(cid, k + 1) === m.id).map((a) => asgOut(a, user)),
+      quizzes: quizzes.filter((z) => z.module === m.id).map((z) => quizOut(z, user)),
+    }));
+  }
+  if (seg[0] === "quizzes") {
+    const visible = (z: Row) => user.role !== "student" || courseById(z.course)?.studentIds.includes(user.id);
+    if (seg.length === 1 && method === "GET") return quizzes.filter(visible).map((z) => quizOut(z, user));
+    if (seg.length === 1 && method === "POST") {
+      needTeacher(user);
+      const qs = Array.isArray(body.questions) ? body.questions : [];
+      if (!qs.length) throw new DemoError("questions: Kamida bitta savol qo‘shing.", 400);
+      const z: Row = {
+        id: Math.max(0, ...quizzes.map((x) => x.id)) + 1, course: Number(body.course), module: body.module ? Number(body.module) : moduleFor(Number(body.course), 0),
+        title: String(body.title || "Test"), time_limit_min: Math.max(1, Number(body.time_limit_min) || 10), max_attempts: Math.max(1, Number(body.max_attempts) || 1),
+        deadline: String(body.deadline), created_at: iso(Date.now()),
+        questions: qs.map((x: Row) => ({ text: String(x.text), options: (x.options as string[]).map(String), correct: Number(x.correct) })),
+      };
+      quizzes.push(z);
+      const nid = Math.max(0, ...notifications.map((x) => x.id)) + 1;
+      courseById(z.course)?.studentIds.forEach((sid: number, k: number) => notifications.push({ id: nid + k, user: sid, type: "assignment", title: "Yangi test", message: `${z.title} · ${courseTitle(z.course)}`, link: `/quizzes/${z.id}`, is_read: false, created_at: iso(Date.now()) }));
+      return quizOut(z, user);
+    }
+    const z = quizzes.find((x) => x.id === num(1));
+    if (!z || !visible(z)) throw new DemoError("Test topilmadi.", 404);
+    if (seg.length === 2 && method === "DELETE") {
+      needTeacher(user);
+      quizzes.splice(quizzes.indexOf(z), 1);
+      return null;
+    }
+    if (seg.length === 2) {
+      const out: Row = { ...quizOut(z, user), questions: z.questions.map((x: Row, k: number) => ({ id: k, text: x.text, options: x.options, ...(isTeacher(user) ? { correct: x.correct } : {}) })) };
+      out.my_attempts = quizAttempts.filter((a) => a.quiz === z.id && a.student === user.id).map((a) => omit(a, ["answers"]));
+      return out;
+    }
+    if (seg[2] === "submit" && method === "POST") {
+      if (user.role !== "student") throw new DemoError("Testni faqat talaba topshiradi.", 403);
+      const used = quizAttempts.filter((a) => a.quiz === z.id && a.student === user.id).length;
+      if (used >= z.max_attempts) throw new DemoError("Urinishlar tugagan.", 400);
+      if (Date.now() > new Date(z.deadline).getTime()) throw new DemoError("Test muddati tugagan.", 400);
+      const answers: number[] = Array.isArray(body.answers) ? body.answers.map(Number) : [];
+      const review = z.questions.map((x: Row, k: number) => ({ id: k, correct: x.correct, chosen: answers[k] ?? null, ok: answers[k] === x.correct }));
+      const correct = review.filter((r: Row) => r.ok).length;
+      const a: Row = { id: quizAttempts.length + 1, quiz: z.id, student: user.id, correct, total: z.questions.length, score: Math.round((correct / z.questions.length) * 100), answers, finished_at: iso(Date.now()) };
+      quizAttempts.push(a);
+      return { ...omit(a, ["answers"]), review };
+    }
+    if (seg[2] === "results") {
+      needTeacher(user);
+      return (courseById(z.course)?.studentIds ?? []).map((sid: number) => {
+        const mine = quizAttempts.filter((a) => a.quiz === z.id && a.student === sid);
+        return { student: sid, student_name: userById(sid).fullname, attempts: mine.length, best_score: mine.length ? Math.max(...mine.map((a) => a.score)) : null, last_at: mine.length ? mine[mine.length - 1].finished_at : null };
+      });
+    }
+  }
+  if (at("exams")) {
+    const mine = user.role === "student" ? exams.filter((e) => courseById(e.course)?.studentIds.includes(user.id)) : exams;
+    return mine.map((e) => ({ ...e, course_title: courseTitle(e.course), course_code: courseById(e.course)?.code }));
   }
 
   // Demo-only bo‘limlar

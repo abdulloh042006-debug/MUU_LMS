@@ -32,6 +32,7 @@ import {
   FileText,
   HelpCircle,
   ListTodo,
+  ListChecks,
   Mic,
   Scale,
   Send,
@@ -62,6 +63,8 @@ const STUDENT_NAV: NavGroup[] = [
     title: "O‘qish",
     items: [
       { href: "/grades", label: "Baholar", icon: Award, keywords: "gpa natija" },
+      { href: "/quizzes", label: "Testlar", icon: ListChecks, keywords: "quiz test" },
+      { href: "/exams", label: "Imtihonlar", icon: GraduationCap, keywords: "nazorat exam" },
       { href: "/attendance", label: "Davomat", icon: ScanLine, keywords: "skaner qr" },
       { href: "/materials", label: "Materiallar", icon: BookOpen, keywords: "kitob adabiyot" },
     ],
@@ -90,6 +93,7 @@ const TEACHER_GROUPS: NavGroup[] = [
     title: "LMS",
     items: [
       { href: "/assignments", label: "Topshiriqlar", icon: ClipboardList, keywords: "vazifa dedlayn muddat" },
+      { href: "/quizzes", label: "Testlar", icon: ListChecks, keywords: "quiz" },
       { href: "/review-queue", label: "Tekshirish navbati", icon: ClipboardCheck, keywords: "baholash review" },
       { href: "/manage", label: "Kurs boshqaruvi", icon: Settings2, keywords: "material topshiriq" },
       { href: "/question-banks", label: "Savollar banki", icon: HelpCircle, keywords: "test" },

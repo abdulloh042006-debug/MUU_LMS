@@ -376,3 +376,13 @@ export const createQuestionBank = (data: Record<string, unknown>) => fetchAPI("/
 export const getGrantInterviews = () => fetchAPI("/staff/grant-interviews/");
 export const getSentMessages = () => fetchAPI("/staff/messages/");
 export const sendStaffMessage = (data: Record<string, unknown>) => fetchAPI("/staff/messages/", post(data));
+
+// Modullar, testlar, imtihonlar — hozircha faqat demo rejimda.
+export const getCourseModules = (id: number) => fetchAPI(`/courses/${id}/modules/`);
+export const getQuizzes = () => fetchAPI("/quizzes/");
+export const getQuiz = (id: number | string) => fetchAPI(`/quizzes/${id}/`);
+export const createQuiz = (data: Record<string, unknown>) => fetchAPI("/quizzes/", post(data));
+export const removeQuiz = (id: number) => fetchAPI(`/quizzes/${id}/`, { method: "DELETE" });
+export const submitQuiz = (id: number | string, answers: (number | null)[]) => fetchAPI(`/quizzes/${id}/submit/`, post({ answers }));
+export const getQuizResults = (id: number | string) => fetchAPI(`/quizzes/${id}/results/`);
+export const getExams = () => fetchAPI("/exams/");
