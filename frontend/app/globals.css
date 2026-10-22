@@ -84,6 +84,11 @@
 }
 
 @layer components {
+  /* Grid ichidagi elementlar uzun matn sabab ekrandan chiqib ketmasin */
+  .grid > * {
+    min-width: 0;
+  }
+
   .skip-link {
     position: absolute;
     left: 12px;

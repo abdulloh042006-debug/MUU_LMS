@@ -93,7 +93,7 @@ export function Panel({
   icon?: ElementType;
 }) {
   return (
-    <section className={cn("rounded-2xl border bg-card shadow-card", className)}>
+    <section className={cn("min-w-0 rounded-2xl border bg-card shadow-card", className)}>
       {(title || action) && (
         <div className="flex items-start justify-between gap-3 px-5 pb-1 pt-5">
           <div className="flex min-w-0 items-center gap-3">

@@ -163,7 +163,7 @@ export function LMSDashboard() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               <Panel title="Bugungi darslar" icon={Clock} action={<SeeAll href="/calendar">Jadval</SeeAll>}>
                 {view.todays.length ? (
                   <ol className="space-y-3">
@@ -234,7 +234,7 @@ export function LMSDashboard() {
               </Panel>
             </div>
 
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               <Panel
                 title="Yaqin muddatlar"
                 icon={ClipboardList}

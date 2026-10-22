@@ -123,10 +123,10 @@ function Content() {
           <div className="absolute inset-x-0 bottom-0 h-px bg-gold-500/40" />
         </div>
         <div className="relative px-5 pb-6 md:px-8">
-          <div className="-mt-12 flex flex-col gap-4 md:-mt-14 md:flex-row md:items-end md:justify-between">
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:gap-5">
+          <div className="-mt-12 flex flex-col gap-4 md:-mt-14 md:flex-row md:items-start md:justify-between">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-5">
               <Avatar name={user?.fullname} size={96} className="shrink-0 border-4 border-white shadow-lift md:!size-28" />
-              <div className="md:pb-1">
+              <div className="md:pt-[64px]">
                 <h1 className="text-2xl font-semibold text-navy-900 md:text-3xl">{user?.fullname}</h1>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Pill tone="navy">{role}</Pill>
@@ -135,7 +135,7 @@ function Content() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 md:pt-[64px]">
               <button onClick={() => setEditing(!editing)} className="inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-sm font-semibold text-navy-700 hover:bg-navy-50">
                 <Pencil size={15} /> Tahrirlash
               </button>
