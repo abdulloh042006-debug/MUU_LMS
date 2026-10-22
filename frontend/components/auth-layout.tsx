@@ -5,7 +5,7 @@ import { Brand } from "@/components/portal-shell";
 
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
+    <div className="grid min-h-[100dvh] lg:h-[100dvh] lg:grid-cols-[1.05fr_1fr]">
       <section className="relative hidden overflow-hidden bg-navy-900 lg:block">
         <img src="/brand/campus.webp" alt="Millat Umidi universiteti" className="absolute inset-0 size-full object-cover opacity-45" />
         <div className="absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-900/70 to-navy-800/60" />
@@ -41,12 +41,12 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <p className="text-xs text-navy-300">© Millat Umidi University</p>
         </div>
       </section>
-      <section className="flex flex-col items-center justify-center bg-white px-5 py-10 sm:px-10">
+      <section className="flex flex-col items-center justify-center overflow-y-auto bg-white px-5 py-6 sm:px-10">
         <div className="mb-8 lg:hidden">
           <Brand />
         </div>
         <div className="w-full max-w-[420px]">{children}</div>
-        <p className="mt-10 text-center text-xs text-muted-foreground">Ta’limingizga diqqat qarating. Qolganini tartibga solamiz.</p>
+        <p className="mt-6 hidden text-center text-xs text-muted-foreground [@media(min-height:860px)]:block">Ta’limingizga diqqat qarating. Qolganini tartibga solamiz.</p>
       </section>
     </div>
   );

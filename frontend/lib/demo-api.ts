@@ -243,6 +243,13 @@ let eventId = 1;
     created_at: iso(weekStart - DAY),
   });
 });
+// Test uchun: hozir boshlangan 24 soatlik dars (davomatni sinab ko‘rish mumkin).
+const longStart = now - 5 * MIN;
+events.push({
+  id: eventId++, course: 1, title: "Test dars (24 soat)", description: "Davomatni sinash uchun 24 soat ochiq dars.",
+  event_type: "lesson", start_time: iso(longStart), end_time: iso(longStart + 24 * 3600_000), room: "A-301", period: null,
+  for_group: "IT102-26", created_by: 2, created_at: iso(now - DAY),
+});
 events.push({
   id: eventId++, course: 2, title: "Ma’lumotlar bazasi — oraliq nazorat", description: "SQL va normallashtirish bo‘yicha yozma ish.",
   event_type: "exam", start_time: iso(weekStart + 9 * DAY + 10 * 3600_000), end_time: iso(weekStart + 9 * DAY + 11.5 * 3600_000),
@@ -656,7 +663,7 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
       if (!session) {
         session = {
           id: sessionId++, calendar_event: ev.id, course: ev.course, starts_at: iso(Math.min(Date.now(), new Date(ev.start_time).getTime())), topic: ev.title,
-          automated_checkin: true, attendance_minutes: 60, late_after_minutes: 10, location_latitude: body.latitude ?? null, location_longitude: body.longitude ?? null,
+          automated_checkin: true, attendance_minutes: Math.max(60, Math.round((new Date(ev.end_time).getTime() - new Date(ev.start_time).getTime()) / MIN)), late_after_minutes: 10, location_latitude: body.latitude ?? null, location_longitude: body.longitude ?? null,
           location_radius_m: 80, max_location_accuracy_m: 100, ended_at: null,
         };
         sessions.push(session);
@@ -666,8 +673,21 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
   }
   if (seg[0] === "attendance") {
     if (at("attendance", "my")) return records.filter((r) => r.student === user.id).sort((a, b) => +new Date(sessions.find((s) => s.id === b.session)!.starts_at) - +new Date(sessions.find((s) => s.id === a.session)!.starts_at)).map(recordOut);
-    if (at("attendance", "active")) return [];
-    if (at("attendance", "check-in")) throw new DemoError("Demo rejimda QR/lokatsiya orqali davomat belgilash o‘chirilgan.", 400);
+    if (at("attendance", "active")) {
+      return sessions
+        .filter((x) => !x.ended_at && courseById(x.course)?.studentIds.includes(user.id) && Date.now() < new Date(x.starts_at).getTime() + x.attendance_minutes * MIN)
+        .map((x) => ({ ...sessionOut(x), course_code: courseById(x.course)?.code, already_checked_in: records.some((r) => r.session === x.id && r.student === user.id) }));
+    }
+    if (at("attendance", "check-in")) {
+      const x = sessions.find((y) => y.id === Number(body.session));
+      if (!x) throw new DemoError("Davomat sessiyasi topilmadi.", 404);
+      const late = Date.now() > new Date(x.starts_at).getTime() + x.late_after_minutes * MIN;
+      const data = { status: late ? "late" : "present", note: "", source: String(body.channel ?? "manual_code"), checked_at: iso(Date.now()), last_seen_at: iso(Date.now()), presence_samples: 1 };
+      const r = records.find((y) => y.session === x.id && y.student === user.id);
+      if (r) Object.assign(r, data);
+      else records.push({ id: recordId++, session: x.id, student: user.id, distance_m: null, location_accuracy_m: null, ...data });
+      return { status: data.status, manual_override: false };
+    }
     if (at("attendance", "presence")) return { ok: true };
     needTeacher(user);
     if (seg.length === 1 && method === "GET") return sessions.map(sessionOut);
@@ -712,7 +732,7 @@ export async function demoFetch(endpoint: string, options: RequestInit = {}): Pr
       const start = new Date(s.starts_at).getTime();
       return {
         session: s.id, course: s.course, course_code: courseById(s.course)?.code, course_title: courseTitle(s.course), topic: s.topic,
-        manual_code: String(100000 + ((s.id * 7919 + Math.floor(Date.now() / 15000)) % 900000)), qr_proof: `demo-qr-${s.id}-${Math.floor(Date.now() / 15000)}`,
+        manual_code: "12345678", qr_proof: `demo-qr-${s.id}-${Math.floor(Date.now() / 15000)}`,
         ultrasound_code: `demo-us-${s.id}`, refresh_seconds: 15, starts_at: s.starts_at, late_after_at: iso(start + s.late_after_minutes * MIN),
         check_in_ends_at: iso(start + s.attendance_minutes * MIN), lesson_ends_at: iso(start + 70 * MIN), server_time: iso(Date.now()), is_open: true,
       };

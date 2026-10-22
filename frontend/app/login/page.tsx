@@ -71,18 +71,18 @@ export default function Login() {
   return (
     <AuthLayout>
       <div>
-        <div className="mb-5 grid size-12 place-items-center rounded-2xl bg-navy-700 text-gold-500">
+        <div className="mb-3 grid size-11 place-items-center rounded-2xl bg-navy-700 text-gold-500">
           <GraduationCap size={24} />
         </div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold-600">Shaxsiy kabinet</p>
-        <h2 className="mt-1 font-heading text-3xl font-semibold text-navy-900">Xush kelibsiz!</h2>
-        <p className="mb-7 mt-2 text-sm text-muted-foreground">
+        <h2 className="mt-1 font-heading text-2xl font-semibold text-navy-900">Xush kelibsiz!</h2>
+        <p className="mb-5 mt-1.5 text-sm text-muted-foreground">
           Universitet bergan hisob ma’lumotlari bilan tizimga kiring.
         </p>
 
         {!recoveryOpen ? (
           <>
-            <form onSubmit={submit} className="space-y-5">
+            <form onSubmit={submit} className="space-y-4">
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
@@ -148,7 +148,7 @@ export default function Login() {
             </form>
 
             {DEMO_MODE && (
-              <div className="mt-6 rounded-2xl border border-gold-200 bg-gold-50 p-4">
+              <div className="mt-4 rounded-2xl border border-gold-200 bg-gold-50 p-4">
                 <p className="mb-3 text-center text-sm font-semibold text-navy-800">
                   Demo rejim — parolsiz kirish
                 </p>
@@ -192,7 +192,7 @@ export default function Login() {
               </button>
             )}
 
-            <p className="mt-6 border-t pt-4 text-center text-xs text-muted-foreground">
+            <p className="mt-4 border-t pt-3 text-center text-xs text-muted-foreground">
               Yangi hisoblarni faqat universitet administratori yaratadi.
             </p>
           </>

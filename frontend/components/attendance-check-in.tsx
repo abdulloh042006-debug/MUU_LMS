@@ -12,6 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import * as api from "@/lib/api-service";
+import { DEMO_MODE } from "@/lib/demo-api";
 import {
   ULTRASOUND_MESSAGES,
   classifyCameraIssue,
@@ -78,6 +79,7 @@ function sendClientFailureReport(reason: ClientFailureReason) {
 }
 
 function freshLocation(): Promise<GeoPayload> {
+  if (DEMO_MODE) return Promise.resolve({ latitude: 41.31, longitude: 69.28, accuracy: 10 });
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Qurilmada lokatsiya xizmati topilmadi."));
@@ -634,6 +636,11 @@ export function AttendanceCheckIn({
         {ultrasoundFallback && ultrasoundFallback !== "checking" && (
           <p role="status" className="rounded-xl border bg-muted/50 p-3 text-sm text-muted-foreground">
             {getUltrasoundFallbackMessage(ultrasoundFallback)} QR skan yoki qo‘lda kod kiritish mumkin.
+          </p>
+        )}
+        {DEMO_MODE && sessions.length > 0 && (
+          <p className="rounded-xl bg-gold-50 px-4 py-3 text-xs text-gold-800 ring-1 ring-inset ring-gold-200">
+            Demo: lokatsiya talab qilinmaydi. Qo‘lda kiritish uchun kod: <b>12345678</b>
           </p>
         )}
         {sessions.map((session) => (
