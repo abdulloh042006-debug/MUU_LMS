@@ -211,7 +211,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (["/", "/login", "/register"].includes(path)) return <>{children}</>;
+  if (["/", "/login", "/register", "/ultrasound-test"].includes(path)) return <>{children}</>;
 
   const found = all.filter((item) => `${item.label} ${item.keywords ?? ""}`.toLowerCase().includes(query.trim().toLowerCase()));
   const current = all.find((item) => isActive(path, item.href));
