@@ -643,83 +643,87 @@ export function AttendanceCheckIn({
             Demo: lokatsiya talab qilinmaydi. Qo‘lda kiritish uchun kod: <b>12345678</b>
           </p>
         )}
-        {sessions.map((session) => (
-          <Card key={session.id}>
-            <CardContent className="p-5">
-              <div className="attendance-session-row flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <MapPin size={17} />
-                    <strong>
-                      {session.course_code} · {session.topic}
-                    </strong>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {session.course_title} ·{" "}
-                    {session.already_checked_in
-                      ? "Davomat allaqachon qayd etilgan"
-                      : "Auditoriyada bo‘lsangiz tasdiqlang"}
-                  </p>
+        {sessions.map((session) => {
+          const listening = busySession === session.id;
+          const done = session.already_checked_in;
+          return (
+            <section key={session.id} className="overflow-hidden rounded-3xl border bg-white shadow-card">
+              <div className="flex items-start gap-3 bg-gradient-to-r from-navy-700 to-navy-900 p-5 text-white">
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/10 text-gold-400"><MapPin size={20} /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-400">Faol davomat · {session.course_code}</p>
+                  <p className="truncate text-base font-semibold">{session.topic}</p>
+                  <p className="text-xs text-navy-200">{session.course_title}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busySession !== null || session.already_checked_in}
-                    onClick={startQrScanner}
-                  >
-                    <ScanLine size={16} />
-                    QR skan
-                  </Button>
-                  {ultrasoundFallback === null && (
-                    <Button
+                {done && <span className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold">Qayd etilgan ✓</span>}
+              </div>
+              <div className="space-y-4 p-5">
+                {done ? (
+                  <p className="flex items-center gap-2 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-800"><CheckCircle2 size={18} /> Davomatingiz allaqachon qayd etilgan.</p>
+                ) : (
+                  <>
+                    {/* 1. Ultratovush — asosiy usul */}
+                    <button
                       type="button"
-                      variant="outline"
-                      disabled={busySession !== null || session.already_checked_in}
+                      disabled={busySession !== null || ultrasoundFallback !== null}
                       onClick={() => void listenUltrasound(session)}
+                      className={`relative flex w-full items-center gap-4 overflow-hidden rounded-2xl p-4 text-left transition disabled:cursor-not-allowed ${listening ? "bg-gold-500 text-navy-950" : "bg-navy-700 text-white hover:bg-navy-800 disabled:bg-slate-200 disabled:text-slate-500"}`}
                     >
-                      <Radio size={16} />
-                      {busySession === session.id ? "Tinglanmoqda…" : "Ultrasound"}
-                    </Button>
-                  )}
-                </div>
+                      <span className="relative grid size-14 shrink-0 place-items-center">
+                        {listening && [0, 1, 2].map((i) => (
+                          <span key={i} className="absolute inset-0 animate-ping rounded-full bg-navy-900/25" style={{ animationDelay: `${i * 0.45}s`, animationDuration: "1.4s" }} />
+                        ))}
+                        <span className={`relative grid size-14 place-items-center rounded-full ${listening ? "bg-navy-900 text-gold-400" : "bg-gold-500 text-navy-950"}`}><Radio size={26} /></span>
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-base font-semibold">{listening ? "Ustoz signali tinglanmoqda…" : "Ultratovush bilan tasdiqlash"}</span>
+                        <span className={`block text-xs ${listening ? "text-navy-800" : "opacity-75"}`}>
+                          {ultrasoundFallback && ultrasoundFallback !== "checking"
+                            ? "Bu qurilmada ishlamaydi — QR yoki koddan foydalaning"
+                            : listening
+                              ? "Telefonni ustoz kompyuteriga yaqin tuting (9 soniya)"
+                              : "Bir bosish — mikrofon ustoz kompyuteridagi signalni eshitadi"}
+                        </span>
+                      </span>
+                    </button>
+                    {/* 2. QR */}
+                    <button type="button" disabled={busySession !== null} onClick={startQrScanner} className="flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left text-sm font-semibold text-navy-800 transition hover:bg-slate-50 disabled:opacity-50">
+                      <span className="grid size-10 place-items-center rounded-xl bg-navy-50 text-navy-700"><ScanLine size={19} /></span>
+                      QR kodni skanerlash
+                    </button>
+                    {/* 3. Kod */}
+                    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <Input
+                        id={`attendance-code-${session.id}`}
+                        aria-label={`${session.course_code} uchun 8 belgili davomat kodi`}
+                        autoComplete="one-time-code"
+                        autoCapitalize="characters"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        inputMode="text"
+                        maxLength={8}
+                        placeholder="yoki 8 belgili kod"
+                        value={manualCodes[session.id] || ""}
+                        onChange={(event) =>
+                          setManualCodes((current) => ({
+                            ...current,
+                            [session.id]: normalizeAttendanceCode(event.target.value),
+                          }))
+                        }
+                        className="h-12 rounded-xl font-mono uppercase tracking-[0.2em]"
+                        disabled={busySession !== null}
+                      />
+                      <Button type="button" className="h-12 rounded-xl" disabled={busySession !== null || (manualCodes[session.id] || "").length !== 8} onClick={() => void submitManualCode(session.id)}>
+                        <CheckCircle2 size={16} />
+                        Kod bilan tasdiqlash
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                <Input
-                  id={`attendance-code-${session.id}`}
-                  aria-label={`${session.course_code} uchun 8 belgili davomat kodi`}
-                  autoComplete="one-time-code"
-                  autoCapitalize="characters"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  inputMode="text"
-                  maxLength={8}
-                  placeholder="8 belgili kod"
-                  value={manualCodes[session.id] || ""}
-                  onChange={(event) =>
-                    setManualCodes((current) => ({
-                      ...current,
-                      [session.id]: normalizeAttendanceCode(event.target.value),
-                    }))
-                  }
-                  className="font-mono uppercase tracking-[0.2em]"
-                  disabled={busySession !== null || session.already_checked_in}
-                />
-                <Button
-                  type="button"
-                  disabled={busySession !== null || session.already_checked_in || (manualCodes[session.id] || "").length !== 8}
-                  onClick={() => void submitManualCode(session.id)}
-                >
-                  <CheckCircle2 size={16} />
-                  Kod bilan tasdiqlash
-                </Button>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Kod avtomatik katta harfga o‘tadi; 0/O va 1/I ishlatilmaydi.
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+            </section>
+          );
+        })}
         {!sessions.length && (
           <Card>
             <CardContent className="space-y-3 p-5">

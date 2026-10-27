@@ -304,6 +304,16 @@ events
       });
     });
   });
+// Demo: 24 soatlik test darsi uchun davomat sessiyasi oldindan ochiq turadi —
+// shunda boshqa telefondagi talaba ham uni ko‘radi va ultratovush/QR/kod bilan tasdiqlay oladi.
+{
+  const ev = events.find((e) => e.title === "Test dars (24 soat)");
+  if (ev) sessions.push({
+    id: sessionId++, calendar_event: ev.id, course: ev.course, starts_at: ev.start_time, topic: ev.title, automated_checkin: true,
+    attendance_minutes: 24 * 60, late_after_minutes: 60, location_latitude: null, location_longitude: null, location_radius_m: 80,
+    max_location_accuracy_m: 100, ended_at: null,
+  });
+}
 const sessionOut = (s: Row) => {
   const ev = s.calendar_event ? events.find((e) => e.id === s.calendar_event) : null;
   const start = new Date(s.starts_at).getTime();
